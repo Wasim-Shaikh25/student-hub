@@ -36,11 +36,21 @@ const defaultData: DbSchema = {
 
 let db: LowSync<DbSchema> | null = null
 
+function getDataDir(): string {
+  if (process.env.STUDENTSHUB_DATA_DIR) {
+    return process.env.STUDENTSHUB_DATA_DIR.startsWith('/')
+      ? process.env.STUDENTSHUB_DATA_DIR
+      : join(process.cwd(), process.env.STUDENTSHUB_DATA_DIR)
+  }
+  if (process.env.NETLIFY) {
+    return '/tmp/studentshub/data'
+  }
+  return join(process.cwd(), 'data')
+}
+
 export function getDb(): LowSync<DbSchema> {
   if (!db) {
-    const dir = process.env.STUDENTSHUB_DATA_DIR
-      ? join(process.cwd(), process.env.STUDENTSHUB_DATA_DIR)
-      : join(process.cwd(), 'data')
+    const dir = getDataDir()
     const file = join(dir, 'db.json')
     mkdirSync(dir, { recursive: true })
     db = JSONFileSyncPreset<DbSchema>(file, defaultData)

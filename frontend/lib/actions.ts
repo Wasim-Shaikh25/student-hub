@@ -152,8 +152,12 @@ export async function createCase(formData: FormData) {
   db.data.cases.push(c)
 
   const uploadBase = process.env.STUDENTSHUB_UPLOAD_DIR
-    ? join(process.cwd(), process.env.STUDENTSHUB_UPLOAD_DIR)
-    : join(process.cwd(), 'public', 'uploads')
+    ? process.env.STUDENTSHUB_UPLOAD_DIR.startsWith('/')
+      ? process.env.STUDENTSHUB_UPLOAD_DIR
+      : join(process.cwd(), process.env.STUDENTSHUB_UPLOAD_DIR)
+    : process.env.NETLIFY
+      ? '/tmp/studentshub/uploads'
+      : join(process.cwd(), 'public', 'uploads')
   const uploadPublicPath = process.env.STUDENTSHUB_UPLOAD_PUBLIC_PATH || '/uploads'
   const uploadDir = join(uploadBase, 'cases', id)
   await mkdir(uploadDir, { recursive: true })

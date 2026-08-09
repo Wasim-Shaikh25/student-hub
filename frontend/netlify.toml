@@ -1,0 +1,12 @@
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+[build.environment]
+  NODE_VERSION = "20"
+  STUDENTSHUB_DATA_DIR = "/tmp/studentshub/data"
+  STUDENTSHUB_UPLOAD_DIR = "/tmp/studentshub/uploads"
+  STUDENTSHUB_UPLOAD_PUBLIC_PATH = "/uploads"
