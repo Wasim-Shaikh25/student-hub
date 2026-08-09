@@ -1,12 +1,12 @@
-# CampusResolve — Product & Technical Requirements Specification
+# studentshub — Product & Technical Requirements Specification
 
 ## 1. Document Purpose
 
-This document captures the functional and non-functional requirements for **CampusResolve MVP Version 1**, an evidence-first student action network. It is derived from the product vision, case lifecycle, and MVP scope approved for `student-hub`.
+This document captures the functional and non-functional requirements for **studentshub MVP Version 1**, an evidence-first student action network. It is derived from the product vision, case lifecycle, and MVP scope approved for `student-hub`.
 
 ## 2. Product Vision
 
-CampusResolve is a trusted digital network for students to raise, validate, discuss, and collectively resolve education-related problems. The core journey is:
+studentshub is a trusted digital network for students to raise, validate, discuss, and collectively resolve education-related problems. The core journey is:
 
 **Problem → Evidence → Community → Expert Support → Action → Authority Response → Verification → Resolution**
 
@@ -361,7 +361,7 @@ The MVP must prove the core loop with real students before adding backend comple
 
 ## 9. Brand Positioning
 
-**CampusResolve**
+**studentshub**
 
 - Tagline: *Turn problems into progress.*
 - Alternative: *Students speak. Evidence leads. Action follows.*

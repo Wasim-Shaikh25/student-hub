@@ -1,4 +1,4 @@
-# CampusResolve MVP v1 — Implementation Tracker
+# studentshub MVP v1 — Implementation Tracker
 
 This tracker breaks the MVP scope into parallel workstreams, each with numbered tasks, acceptance criteria, and completion status.
 
@@ -8,7 +8,7 @@ This tracker breaks the MVP scope into parallel workstreams, each with numbered 
 
 - Prefix each task with `- [ ]` when not started, `- [~]` when in progress, `- [x]` when done.
 - Move or reorder tasks as the implementation plan evolves.
-- Link each task to the requirement IDs in `docs/specs/CampusResolve-Requirements-v1.md`.
+- Link each task to the requirement IDs in `docs/specs/studentshub-Requirements-v1.md`.
 
 ---
 
@@ -222,4 +222,4 @@ This tracker breaks the MVP scope into parallel workstreams, each with numbered 
 
 *Tracker version: 1.0*  
 *Last updated: 2026-08-09*  
-*Requirements: `docs/specs/CampusResolve-Requirements-v1.md`*
+*Requirements: `docs/specs/studentshub-Requirements-v1.md`*

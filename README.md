@@ -1,4 +1,4 @@
-# CampusResolve — Student Hub
+# studentshub
 
 An evidence-first student action network. Students raise, validate, discuss, and collectively resolve education-related problems.
 
@@ -9,7 +9,7 @@ An evidence-first student action network. Students raise, validate, discuss, and
 
 ## Documentation
 
-- Product & technical requirements: [`docs/specs/CampusResolve-Requirements-v1.md`](docs/specs/CampusResolve-Requirements-v1.md)
+- Product & technical requirements: [`docs/specs/studentshub-Requirements-v1.md`](docs/specs/studentshub-Requirements-v1.md)
 - MVP v1 implementation tracker: [`tasks/MVP-v1-Tracker.md`](tasks/MVP-v1-Tracker.md)
 
 ## Status
