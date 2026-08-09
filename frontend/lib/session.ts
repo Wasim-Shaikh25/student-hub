@@ -1,0 +1,63 @@
+import { cookies } from 'next/headers'
+import { sealData, unsealData } from 'iron-session'
+import { getDb } from './db'
+import type { User, UserRole } from './types'
+
+export type SessionUser = {
+  id: string
+  email: string
+  name: string
+  role: UserRole
+}
+
+const SESSION_SECRET =
+  process.env.SESSION_SECRET || 'studentshub-default-secret-min-32-characters!'
+const COOKIE_NAME = 'studentshub_session'
+
+export async function getSessionUser(): Promise<SessionUser | null> {
+  const cookie = cookies().get(COOKIE_NAME)
+  if (!cookie?.value) return null
+  try {
+    const user = await unsealData<SessionUser>(cookie.value, {
+      password: SESSION_SECRET,
+    })
+    return user
+  } catch {
+    return null
+  }
+}
+
+export async function setSessionUser(user: SessionUser) {
+  const sealed = await sealData(user, { password: SESSION_SECRET })
+  cookies().set(COOKIE_NAME, sealed, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
+    maxAge: 60 * 60 * 24 * 7,
+  })
+}
+
+export async function clearSessionUser() {
+  cookies().set(COOKIE_NAME, '', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
+    maxAge: 0,
+  })
+}
+
+export async function getCurrentUser(): Promise<User | null> {
+  const session = await getSessionUser()
+  if (!session) return null
+  const db = getDb()
+  return db.data.users.find((u) => u.id === session.id) || null
+}
+
+export function requireAuth(): Promise<SessionUser> {
+  return getSessionUser().then((user) => {
+    if (!user) throw new Error('Unauthorized')
+    return user
+  })
+}
