@@ -38,6 +38,7 @@ next-env.d.ts
 # local data and uploads
 /data
 /public/uploads
+/mobile-screenshots
 
 # playwright
 /test-results/
