@@ -151,7 +151,11 @@ export async function createCase(formData: FormData) {
 
   db.data.cases.push(c)
 
-  const uploadDir = join(process.cwd(), 'public', 'uploads', 'cases', id)
+  const uploadBase = process.env.STUDENTSHUB_UPLOAD_DIR
+    ? join(process.cwd(), process.env.STUDENTSHUB_UPLOAD_DIR)
+    : join(process.cwd(), 'public', 'uploads')
+  const uploadPublicPath = process.env.STUDENTSHUB_UPLOAD_PUBLIC_PATH || '/uploads'
+  const uploadDir = join(uploadBase, 'cases', id)
   await mkdir(uploadDir, { recursive: true })
 
   for (const file of evidenceFiles) {
@@ -167,7 +171,7 @@ export async function createCase(formData: FormData) {
       uploaderId: session.id,
       filename: safeName,
       type: file.type || 'application/octet-stream',
-      url: `/uploads/cases/${id}/${safeName}`,
+      url: `${uploadPublicPath}/cases/${id}/${safeName}`,
       status: 'Community Submitted',
       createdAt: now(),
     }

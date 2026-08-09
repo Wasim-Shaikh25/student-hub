@@ -38,7 +38,9 @@ let db: LowSync<DbSchema> | null = null
 
 export function getDb(): LowSync<DbSchema> {
   if (!db) {
-    const dir = join(process.cwd(), 'data')
+    const dir = process.env.STUDENTSHUB_DATA_DIR
+      ? join(process.cwd(), process.env.STUDENTSHUB_DATA_DIR)
+      : join(process.cwd(), 'data')
     const file = join(dir, 'db.json')
     mkdirSync(dir, { recursive: true })
     db = JSONFileSyncPreset<DbSchema>(file, defaultData)
