@@ -1,8 +1,32 @@
 import { getSessionUser } from './session'
 import type { Case } from './types'
+import { DEMO_INVESTIGATIONS, DEMO_SCHEME_RECORDS, getDemoInvestigationById, getDemoSchemeById } from './demo-data'
 
 interface ApiResponse {
   [key: string]: unknown
+}
+
+class ApiError extends Error {
+  status?: number
+
+  constructor(message: string, status?: number) {
+    super(message)
+    this.status = status
+  }
+}
+
+function isConnectionError(error: unknown): boolean {
+  if (error instanceof ApiError) return false
+  if (!(error instanceof Error)) return false
+  const message = error.message.toLowerCase()
+  if (message.includes('fetch failed')) return true
+  if (message.includes('econnrefused') || message.includes('enotfound') || message.includes('eai_again')) return true
+  const cause = (error as { cause?: { code?: string } }).cause
+  if (cause && typeof cause === 'object') {
+    const code = cause.code
+    if (code === 'ECONNREFUSED' || code === 'ENOTFOUND' || code === 'EAI_AGAIN') return true
+  }
+  return false
 }
 
 class ServerApiClient {
@@ -26,7 +50,7 @@ class ServerApiClient {
     })
 
     if (!response.ok) {
-      throw new Error(`API error: ${response.statusText}`)
+      throw new ApiError(`API error: ${response.statusText}`, response.status)
     }
 
     return response.json() as Promise<ApiResponse>
@@ -169,8 +193,19 @@ export async function getSchemes(filters?: { state_id?: number; financial_year?:
     const result = await serverApi.request('GET', `/spending/schemes${queryString ? '?' + queryString : ''}`)
     return (result.items as unknown[] || []) as Record<string, unknown>[]
   } catch (error) {
-    console.error('Failed to fetch schemes:', error)
-    return []
+    if (!isConnectionError(error)) {
+      console.error('Failed to fetch schemes:', error)
+      return []
+    }
+    console.error('Backend unreachable, using demo schemes fallback:', error)
+    let fallback = [...DEMO_SCHEME_RECORDS]
+    if (filters?.state_id !== undefined) {
+      fallback = fallback.filter((s) => String(s.applicable_state_id) === String(filters.state_id))
+    }
+    if (filters?.financial_year) {
+      fallback = fallback.filter((s) => s.financial_year === filters.financial_year)
+    }
+    return fallback as Record<string, unknown>[]
   }
 }
 
@@ -179,8 +214,12 @@ export async function getSchemeById(id: string): Promise<Record<string, unknown>
     const result = await serverApi.request('GET', `/spending/schemes/${encodeURIComponent(id)}`)
     return result as Record<string, unknown>
   } catch (error) {
-    console.error('Failed to fetch scheme:', error)
-    return undefined
+    if (!isConnectionError(error)) {
+      console.error('Failed to fetch scheme:', error)
+      return undefined
+    }
+    console.error('Backend unreachable, using demo scheme fallback:', error)
+    return getDemoSchemeById(id) as Record<string, unknown> | undefined
   }
 }
 
@@ -195,8 +234,19 @@ export async function getInvestigations(filters?: { verdict?: string; page?: num
     const result = await serverApi.request('GET', `/investigations${queryString ? '?' + queryString : ''}`)
     return (result.items as unknown[] || []) as ApiResponse[]
   } catch (error) {
-    console.error('Failed to fetch investigations:', error)
-    return []
+    if (!isConnectionError(error)) {
+      console.error('Failed to fetch investigations:', error)
+      return []
+    }
+    console.error('Backend unreachable, using demo investigations fallback:', error)
+    let fallback = [...DEMO_INVESTIGATIONS]
+    if (filters?.verdict) {
+      fallback = fallback.filter((inv) => inv.verdict === filters.verdict)
+    }
+    const page = filters?.page ?? 1
+    const per_page = filters?.per_page ?? 20
+    const start = (page - 1) * per_page
+    return fallback.slice(start, start + per_page) as ApiResponse[]
   }
 }
 
@@ -205,7 +255,11 @@ export async function getInvestigationById(id: string) {
     const result = await serverApi.request('GET', `/investigations/${id}`)
     return result as ApiResponse
   } catch (error) {
-    console.error('Failed to fetch investigation:', error)
-    return undefined
+    if (!isConnectionError(error)) {
+      console.error('Failed to fetch investigation:', error)
+      return undefined
+    }
+    console.error('Backend unreachable, using demo investigation fallback:', error)
+    return getDemoInvestigationById(id) as ApiResponse
   }
 }
