@@ -5,7 +5,7 @@ from pydantic import field_validator
 
 class Settings(BaseSettings):
     # API
-    APP_NAME: str = "CivicAudit API"
+    APP_NAME: str = "PublicWatch API"
     DEBUG: bool = False
     ENVIRONMENT: str = "development"
     API_V1_PREFIX: str = "/api/v1"

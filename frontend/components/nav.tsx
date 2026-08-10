@@ -21,7 +21,7 @@ export function Nav({ user }: { user: SessionUser | null }) {
     <header className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur">
       <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4">
         <Link href="/" className="text-lg font-bold tracking-tight text-primary">
-          studentshub
+          PublicWatch
         </Link>
 
         <nav className="hidden items-center gap-6 md:flex">

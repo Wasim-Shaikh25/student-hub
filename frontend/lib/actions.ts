@@ -37,8 +37,28 @@ class ServerApiClient {
     })
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({})) as ApiError
-      throw new Error(error.detail || `API error: ${response.statusText}`)
+      const body = await response.json().catch(() => ({})) as Record<string, unknown>
+      const detail = body.detail
+      let message: string
+      if (Array.isArray(detail)) {
+        message = detail
+          .map((e) => {
+            if (typeof e === 'object' && e !== null) {
+              const err = e as { loc?: unknown[]; msg?: string; type?: string }
+              const loc = err.loc?.slice(1).join('.') || 'input'
+              return `${loc}: ${err.msg || err.type || 'invalid'}`
+            }
+            return String(e)
+          })
+          .join('; ')
+      } else if (typeof detail === 'string') {
+        message = detail
+      } else if (typeof detail === 'object' && detail !== null) {
+        message = JSON.stringify(detail)
+      } else {
+        message = `API error: ${response.statusText}`
+      }
+      throw new Error(message)
     }
 
     return response.json() as Promise<ApiResponse>
@@ -52,6 +72,18 @@ class ServerApiClient {
 
   async login(email: string, password: string): Promise<ApiResponse> {
     return this.request('POST', '/auth/login', { email, password })
+  }
+
+  async getMe(token: string): Promise<ApiResponse> {
+    return this.request('GET', '/auth/me', undefined, token)
+  }
+
+  async updateProfile(data: Record<string, unknown>, token: string): Promise<ApiResponse> {
+    return this.request('PUT', '/auth/me', data, token)
+  }
+
+  async updatePassword(currentPassword: string, newPassword: string, token: string): Promise<ApiResponse> {
+    return this.request('PUT', '/auth/me/password', { current_password: currentPassword, new_password: newPassword }, token)
   }
 
   async createIssue(formData: FormData, token: string): Promise<ApiResponse> {
@@ -114,6 +146,26 @@ class ServerApiClient {
     return this.request('GET', `/admin/moderation-queue?queue_type=${encodeURIComponent(queueType)}`, undefined, token)
   }
 
+  async getAdminDashboard(token: string): Promise<ApiResponse> {
+    return this.request('GET', '/admin/analytics/dashboard', undefined, token)
+  }
+
+  async getAdminUsers(token: string): Promise<ApiResponse> {
+    return this.request('GET', '/admin/users', undefined, token)
+  }
+
+  async getAdminCases(token: string): Promise<ApiResponse> {
+    return this.request('GET', '/admin/cases', undefined, token)
+  }
+
+  async banUser(userId: number, reason: string, token: string): Promise<ApiResponse> {
+    return this.request('PUT', `/admin/users/${userId}/ban?reason=${encodeURIComponent(reason)}`, undefined, token)
+  }
+
+  async unbanUser(userId: number, token: string): Promise<ApiResponse> {
+    return this.request('PUT', `/admin/users/${userId}/unban`, undefined, token)
+  }
+
   async moderateIssue(
     issueId: number,
     status: string,
@@ -122,6 +174,14 @@ class ServerApiClient {
     token: string
   ): Promise<ApiResponse> {
     return this.request('PUT', `/admin/issues/${issueId}/moderate`, { status, visibility, moderation_notes: moderationNotes }, token)
+  }
+
+  async listInvestigations(): Promise<ApiResponse> {
+    return this.request('GET', '/investigations')
+  }
+
+  async listSchemes(): Promise<ApiResponse> {
+    return this.request('GET', '/spending/schemes')
   }
 }
 
@@ -196,6 +256,72 @@ export async function logout() {
 
 export async function followCase(): Promise<void> {
   // TODO: Implement following logic when API endpoint is available
+}
+
+export async function getCurrentUser() {
+  const session = await getSessionUser()
+  if (!session?.accessToken) return null
+  try {
+    return await serverApi.getMe(session.accessToken)
+  } catch (err: unknown) {
+    const error = err instanceof Error ? err.message : 'Failed to fetch user'
+    console.error('Failed to fetch user:', error)
+    return null
+  }
+}
+
+export async function updateProfile(formData: FormData) {
+  try {
+    const session = await getSessionUser()
+    if (!session?.accessToken) return { error: 'Unauthorized' }
+
+    const displayName = String(formData.get('display_name') || '').trim()
+    const bio = String(formData.get('bio') || '').trim() || null
+    const phone = String(formData.get('phone') || '').trim() || null
+
+    if (!displayName) {
+      return { error: 'Display name is required' }
+    }
+
+    const result = await serverApi.updateProfile({ display_name: displayName, bio, phone }, session.accessToken)
+    const user = (result as Record<string, unknown>) || {}
+    await setSessionUser({
+      ...session,
+      name: String(user.display_name || displayName),
+    })
+    revalidatePath('/profile')
+    return { success: true }
+  } catch (err: unknown) {
+    const error = err instanceof Error ? err : new Error('Failed to update profile')
+    return { error: error.message }
+  }
+}
+
+export async function updatePassword(formData: FormData) {
+  try {
+    const session = await getSessionUser()
+    if (!session?.accessToken) return { error: 'Unauthorized' }
+
+    const currentPassword = String(formData.get('current_password') || '')
+    const newPassword = String(formData.get('new_password') || '')
+    const confirmPassword = String(formData.get('confirm_password') || '')
+
+    if (!currentPassword || !newPassword) {
+      return { error: 'Current and new passwords are required' }
+    }
+    if (newPassword.length < 8) {
+      return { error: 'New password must be at least 8 characters' }
+    }
+    if (newPassword !== confirmPassword) {
+      return { error: 'New passwords do not match' }
+    }
+
+    await serverApi.updatePassword(currentPassword, newPassword, session.accessToken)
+    return { success: true }
+  } catch (err: unknown) {
+    const error = err instanceof Error ? err : new Error('Failed to update password')
+    return { error: error.message }
+  }
 }
 
 export async function createCase(formData: FormData) {
@@ -278,6 +404,95 @@ export async function getModerationQueue(queueType: string = 'issues') {
   } catch (err: unknown) {
     const error = err instanceof Error ? err : new Error('Failed to fetch moderation queue')
     return { error: error.message }
+  }
+}
+
+export async function getAdminDashboard() {
+  try {
+    const session = await getSessionUser()
+    if (!session?.accessToken) return { error: 'Unauthorized' }
+
+    const result = await serverApi.getAdminDashboard(session.accessToken)
+    return { success: true, data: result }
+  } catch (err: unknown) {
+    const error = err instanceof Error ? err : new Error('Failed to fetch dashboard')
+    return { error: error.message }
+  }
+}
+
+export async function getAdminUsers() {
+  try {
+    const session = await getSessionUser()
+    if (!session?.accessToken) return { error: 'Unauthorized' }
+
+    const result = await serverApi.getAdminUsers(session.accessToken)
+    return { success: true, data: result }
+  } catch (err: unknown) {
+    const error = err instanceof Error ? err : new Error('Failed to fetch users')
+    return { error: error.message }
+  }
+}
+
+export async function getAdminCases() {
+  try {
+    const session = await getSessionUser()
+    if (!session?.accessToken) return { error: 'Unauthorized' }
+
+    const result = await serverApi.getAdminCases(session.accessToken)
+    return { success: true, data: result }
+  } catch (err: unknown) {
+    const error = err instanceof Error ? err : new Error('Failed to fetch cases')
+    return { error: error.message }
+  }
+}
+
+export async function banUser(userId: number, reason: string) {
+  try {
+    const session = await getSessionUser()
+    if (!session?.accessToken) return { error: 'Unauthorized' }
+
+    await serverApi.banUser(userId, reason, session.accessToken)
+    revalidatePath('/admin')
+    return { success: true }
+  } catch (err: unknown) {
+    const error = err instanceof Error ? err : new Error('Failed to ban user')
+    return { error: error.message }
+  }
+}
+
+export async function unbanUser(userId: number) {
+  try {
+    const session = await getSessionUser()
+    if (!session?.accessToken) return { error: 'Unauthorized' }
+
+    await serverApi.unbanUser(userId, session.accessToken)
+    revalidatePath('/admin')
+    return { success: true }
+  } catch (err: unknown) {
+    const error = err instanceof Error ? err : new Error('Failed to unban user')
+    return { error: error.message }
+  }
+}
+
+export async function getInvestigationsList() {
+  try {
+    const result = await serverApi.listInvestigations()
+    return (result.items as unknown[] || []) as Record<string, unknown>[]
+  } catch (err: unknown) {
+    const error = err instanceof Error ? err.message : 'Failed to fetch investigations'
+    console.error('Failed to fetch investigations:', error)
+    return []
+  }
+}
+
+export async function getSchemesList() {
+  try {
+    const result = await serverApi.listSchemes()
+    return (result.items as unknown[] || []) as Record<string, unknown>[]
+  } catch (err: unknown) {
+    const error = err instanceof Error ? err.message : 'Failed to fetch schemes'
+    console.error('Failed to fetch schemes:', error)
+    return []
   }
 }
 

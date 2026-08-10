@@ -29,7 +29,7 @@ export default function LoginPage() {
     <div className="mx-auto max-w-md px-4 py-12">
       <div className="rounded-2xl border bg-card p-6 shadow-sm">
         <h1 className="text-2xl font-bold">Log in</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Welcome back to studentshub.</p>
+        <p className="mt-1 text-sm text-muted-foreground">Welcome back to PublicWatch.</p>
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
           <div>
             <label className="block text-sm font-medium">Email</label>

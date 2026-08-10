@@ -25,6 +25,9 @@ export default async function CaseDetailPage({ params }: { params: { id: string 
     getSessionUser(),
   ])
 
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'
+  const backendBaseUrl = apiUrl.replace(/\/api\/v1\/?$/, '')
+
   const affectedCount = (confirmations as { confirmation_type?: string }[])
     .filter((x) => x.confirmation_type === 'affected').length
   const resolvedCount = (confirmations as { confirmation_type?: string }[])
@@ -96,7 +99,7 @@ export default async function CaseDetailPage({ params }: { params: { id: string 
             ) : (
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
                 {(evidence as Record<string, unknown>[]).map((ev) => {
-                  const fileUrl = ev.file_url ? String(ev.file_url) : null
+                  const fileUrl = ev.file_url ? `${backendBaseUrl}${String(ev.file_url)}` : null
                   return (
                     <div key={String(ev.id)} className="rounded-xl border p-3">
                       <div className="flex items-center justify-between">

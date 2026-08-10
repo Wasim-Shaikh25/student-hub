@@ -19,7 +19,7 @@ export default async function HomePage() {
           Turn problems into progress
         </h1>
         <p className="mx-auto mt-4 max-w-2xl text-lg text-muted-foreground">
-          studentshub is an evidence-first network where students raise, validate, and collectively resolve education problems.
+          PublicWatch is an evidence-first network where citizens raise, validate, and collectively resolve public problems.
         </p>
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
           {user ? (
@@ -61,12 +61,12 @@ export default async function HomePage() {
         <div className="rounded-2xl border bg-card p-4">
           <Users className="size-6 text-primary" />
           <h3 className="mt-3 font-semibold">Collective action</h3>
-          <p className="mt-1 text-sm text-muted-foreground">Other students confirm, experts review, authorities respond.</p>
+          <p className="mt-1 text-sm text-muted-foreground">Other citizens confirm, experts review, authorities respond.</p>
         </div>
         <div className="rounded-2xl border bg-card p-4">
           <CheckCircle className="size-6 text-primary" />
           <h3 className="mt-3 font-semibold">Resolution confidence</h3>
-          <p className="mt-1 text-sm text-muted-foreground">Verified by affected students, not likes.</p>
+          <p className="mt-1 text-sm text-muted-foreground">Verified by affected citizens, not likes.</p>
         </div>
       </section>
 
