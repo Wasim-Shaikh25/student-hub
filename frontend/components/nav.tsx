@@ -12,7 +12,8 @@ export function Nav({ user }: { user: SessionUser | null }) {
   const links = [
     { href: '/', label: 'Home' },
     { href: '/discover', label: 'Discover' },
-    { href: '/investigations', label: 'Investigations' },
+    { href: '/investigations', label: 'News' },
+    { href: '/schemes', label: 'Schemes' },
     { href: '/cases', label: 'My Cases' },
   ]
 

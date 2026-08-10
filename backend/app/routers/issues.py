@@ -6,7 +6,7 @@ from datetime import datetime
 
 from config.database import get_db
 from models.models import Issue, IssueStatus, CivicEvidence, EvidenceVerificationState, AuditLog, Confirmation, User
-from schemas.schemas import IssueUpdate, IssueDetailResponse
+from schemas.schemas import IssueUpdate, IssueDetailResponse, IssueListResponse
 from app.middleware.auth_middleware import get_current_user, get_optional_user, get_current_moderator
 from services.file_service import save_evidence_file
 
@@ -14,7 +14,7 @@ router = APIRouter(prefix="/api/v1/issues", tags=["issues"])
 
 
 def _can_view(issue: Issue, user: Optional[User]) -> bool:
-    if issue.visibility != "draft":
+    if issue.visibility == "public":
         return True
     if not user:
         return False
@@ -74,7 +74,7 @@ async def create_issue(
         db_issue.location_point = f"POINT({longitude} {latitude})"
 
     db.add(db_issue)
-    db.commit()
+    db.flush()
     db.refresh(db_issue)
 
     for file in files:
@@ -140,7 +140,7 @@ async def list_issues(
         _enrich_issue(issue, db)
 
     return {
-        "items": issues,
+        "items": [IssueListResponse.model_validate(i) for i in issues],
         "total": total,
         "page": page,
         "per_page": per_page
@@ -199,10 +199,6 @@ async def update_issue(
         issue.description = update_data.description
     if update_data.category:
         issue.category = update_data.category
-    if update_data.status:
-        issue.status = update_data.status
-    if update_data.visibility:
-        issue.visibility = update_data.visibility
     if update_data.estimated_affected_people is not None:
         issue.estimated_affected_people = update_data.estimated_affected_people
 

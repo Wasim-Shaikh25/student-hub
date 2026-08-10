@@ -86,7 +86,7 @@ async def list_evidence(
             detail="Issue not found"
         )
 
-    if issue.visibility == "draft":
+    if issue.visibility != "public":
         if not current_user or (current_user.id != issue.created_by_id and current_user.role not in ["moderator", "admin"]):
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -102,7 +102,7 @@ async def list_evidence(
     evidence = query.order_by(CivicEvidence.created_at.desc()).all()
 
     return {
-        "items": evidence,
+        "items": [EvidenceResponse.model_validate(e) for e in evidence],
         "total": total
     }
 
@@ -122,7 +122,7 @@ async def get_evidence_detail(
             detail="Issue not found"
         )
 
-    if issue.visibility == "draft":
+    if issue.visibility != "public":
         if not current_user or (current_user.id != issue.created_by_id and current_user.role not in ["moderator", "admin"]):
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,

@@ -106,8 +106,8 @@ class GeographyHierarchy(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     # Relationships
-    children = relationship("GeographyHierarchy", remote_side=[id], foreign_keys=[parent_id], back_populates="parent")
-    parent = relationship("GeographyHierarchy", remote_side=[parent_id], foreign_keys=[parent_id], back_populates="children")
+    children = relationship("GeographyHierarchy", remote_side=[parent_id], foreign_keys=[parent_id], back_populates="parent")
+    parent = relationship("GeographyHierarchy", remote_side=[id], foreign_keys=[parent_id], back_populates="children")
 
     __table_args__ = (
         UniqueConstraint("level", "official_code", name="uq_level_code"),

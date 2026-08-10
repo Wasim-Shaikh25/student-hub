@@ -167,18 +167,6 @@ class IssueUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
     category: Optional[str] = None
-    status: Optional[Literal[
-        "draft",
-        "evidence_review",
-        "confirmed_problem",
-        "investigating",
-        "awaiting_response",
-        "partially_resolved",
-        "mostly_resolved",
-        "resolved",
-        "reopened",
-    ]] = None
-    visibility: Optional[Literal["public", "draft", "hidden"]] = None
     estimated_affected_people: Optional[int] = None
 
 
@@ -188,7 +176,7 @@ class IssueDetailResponse(BaseModel):
     description: str
     category: str
     status: str
-    resolution_confidence: Decimal
+    resolution_confidence: float
 
     created_by: UserResponse
     created_at: datetime
@@ -217,9 +205,10 @@ class IssueDetailResponse(BaseModel):
 class IssueListResponse(BaseModel):
     id: int
     title: str
+    description: str
     category: str
     status: str
-    resolution_confidence: Decimal
+    resolution_confidence: float
 
     created_by: UserResponse
     created_at: datetime

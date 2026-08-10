@@ -13,7 +13,7 @@ router = APIRouter(prefix="/api/v1/issues", tags=["comments"])
 
 
 def _can_view(issue, user):
-    if issue.visibility != "draft":
+    if issue.visibility == "public":
         return True
     if not user:
         return False
@@ -113,7 +113,7 @@ async def list_comments(
         .all()
 
     return {
-        "items": comments,
+        "items": [CommentResponse.model_validate(c) for c in comments],
         "total": total,
         "page": page,
         "per_page": per_page

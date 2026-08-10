@@ -160,6 +160,30 @@ export async function getModerationQueue() {
   }
 }
 
+export async function getSchemes(filters?: { state_id?: number; financial_year?: string }): Promise<Record<string, unknown>[]> {
+  try {
+    const params = new URLSearchParams()
+    if (filters?.state_id) params.append('state_id', String(filters.state_id))
+    if (filters?.financial_year) params.append('financial_year', filters.financial_year)
+    const queryString = params.toString()
+    const result = await serverApi.request('GET', `/spending/schemes${queryString ? '?' + queryString : ''}`)
+    return (result.items as unknown[] || []) as Record<string, unknown>[]
+  } catch (error) {
+    console.error('Failed to fetch schemes:', error)
+    return []
+  }
+}
+
+export async function getSchemeById(id: string): Promise<Record<string, unknown> | undefined> {
+  try {
+    const result = await serverApi.request('GET', `/spending/schemes/${encodeURIComponent(id)}`)
+    return result as Record<string, unknown>
+  } catch (error) {
+    console.error('Failed to fetch scheme:', error)
+    return undefined
+  }
+}
+
 export async function getInvestigations(filters?: { verdict?: string; page?: number; per_page?: number }) {
   try {
     const params = new URLSearchParams()
