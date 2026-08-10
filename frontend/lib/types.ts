@@ -1,4 +1,4 @@
-export type UserRole = 'Student' | 'Expert' | 'NGO' | 'Lawyer' | 'SuperAdmin'
+export type UserRole = 'student' | 'citizen' | 'expert' | 'ngo' | 'journalist' | 'government_official' | 'moderator' | 'admin'
 
 export type User = {
   id: string
@@ -12,25 +12,24 @@ export type User = {
 }
 
 export type CaseStatus =
-  | 'Unverified'
-  | 'Confirmed Problem'
-  | 'Evidence Collection'
-  | 'Expert Review'
-  | 'Action Initiated'
-  | 'Authority Response'
-  | 'Partially Resolved'
-  | 'Mostly Resolved'
-  | 'Resolved'
-  | 'Reopened'
+  | 'draft'
+  | 'evidence_review'
+  | 'confirmed_problem'
+  | 'investigating'
+  | 'awaiting_response'
+  | 'partially_resolved'
+  | 'mostly_resolved'
+  | 'resolved'
+  | 'reopened'
 
 export type EvidenceStatus =
-  | 'Community Submitted'
-  | 'Under Review'
-  | 'Verified'
-  | 'Official Source'
-  | 'Expert Verified'
-  | 'Disputed'
-  | 'Rejected'
+  | 'submitted'
+  | 'under_review'
+  | 'verified'
+  | 'official_source'
+  | 'expert_verified'
+  | 'disputed'
+  | 'rejected'
 
 export type Evidence = {
   id: string

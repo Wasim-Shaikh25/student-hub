@@ -3,6 +3,8 @@ import { getSessionUser } from '@/lib/session'
 import { getInstitutions, getLocations } from '@/lib/queries'
 import { RegisterForm } from '@/components/register-form'
 
+export const dynamic = 'force-dynamic'
+
 export default async function RegisterPage() {
   const user = await getSessionUser()
   if (user) redirect('/')

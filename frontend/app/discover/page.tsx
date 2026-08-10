@@ -1,6 +1,8 @@
 import { getCases, getCategories, getLocations } from '@/lib/queries'
 import { CaseCard } from '@/components/case-card'
 
+export const dynamic = 'force-dynamic'
+
 export default async function DiscoverPage({
   searchParams,
 }: {
@@ -20,11 +22,15 @@ export default async function DiscoverPage({
       <form className="mt-6 grid gap-3 sm:grid-cols-4">
         <select name="status" className="rounded-lg border bg-background px-3 py-2 text-sm">
           <option value="">All statuses</option>
-          <option value="Unverified">Unverified</option>
-          <option value="Confirmed Problem">Confirmed Problem</option>
-          <option value="Partially Resolved">Partially Resolved</option>
-          <option value="Mostly Resolved">Mostly Resolved</option>
-          <option value="Resolved">Resolved</option>
+          <option value="draft">Draft</option>
+          <option value="evidence_review">Evidence Review</option>
+          <option value="confirmed_problem">Confirmed Problem</option>
+          <option value="investigating">Investigating</option>
+          <option value="awaiting_response">Awaiting Response</option>
+          <option value="partially_resolved">Partially Resolved</option>
+          <option value="mostly_resolved">Mostly Resolved</option>
+          <option value="resolved">Resolved</option>
+          <option value="reopened">Reopened</option>
         </select>
         <select name="category" className="rounded-lg border bg-background px-3 py-2 text-sm">
           <option value="">All categories</option>

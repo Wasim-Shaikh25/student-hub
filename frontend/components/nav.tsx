@@ -29,7 +29,7 @@ export function Nav({ user }: { user: SessionUser | null }) {
               {l.label}
             </Link>
           ))}
-          {user?.role === 'SuperAdmin' && (
+          {user?.role === 'admin' && (
             <Link href="/admin" className="text-sm font-medium text-muted-foreground hover:text-foreground">
               Admin
             </Link>
@@ -87,7 +87,7 @@ export function Nav({ user }: { user: SessionUser | null }) {
               {l.label}
             </Link>
           ))}
-          {user?.role === 'SuperAdmin' && (
+          {user?.role === 'admin' && (
             <Link href="/admin" onClick={() => setOpen(false)} className="block text-sm font-medium text-muted-foreground hover:text-foreground">
               Admin
             </Link>

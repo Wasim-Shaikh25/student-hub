@@ -1,25 +1,33 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from typing import List
+from typing import Optional, List
 from datetime import datetime
 
 from config.database import get_db
 from models.models import Comment, Issue, User, AuditLog, GovernmentClaim
 from schemas.schemas import CommentCreate, CommentResponse, GovernmentClaimCreate, GovernmentClaimResponse
+from app.middleware.auth_middleware import get_current_user, get_current_moderator, get_optional_user
 
 router = APIRouter(prefix="/api/v1/issues", tags=["comments"])
+
+
+def _can_view(issue, user):
+    if issue.visibility != "draft":
+        return True
+    if not user:
+        return False
+    return user.id == issue.created_by_id or user.role in ["moderator", "admin"]
 
 
 @router.post("/{issue_id}/comments", response_model=CommentResponse, status_code=status.HTTP_201_CREATED)
 async def create_comment(
     issue_id: int,
     comment_data: CommentCreate,
-    user_id: int,  # TODO: Get from JWT token
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Add a comment to an issue."""
-    # Check issue exists
     issue = db.query(Issue).filter(Issue.id == issue_id).first()
     if not issue:
         raise HTTPException(
@@ -27,27 +35,29 @@ async def create_comment(
             detail="Issue not found"
         )
 
-    # Check user exists and not banned
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user or user.is_banned:
+    if not _can_view(issue, current_user):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="User not found or banned"
+            detail="Issue not published yet"
         )
 
-    # Check user role for expert_comment flag
-    is_expert = user.role in ["expert", "moderator", "admin"]
+    if current_user.is_banned:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User is banned"
+        )
+
+    is_expert = current_user.role in ["expert", "moderator", "admin"]
 
     db_comment = Comment(
         issue_id=issue_id,
-        user_id=user_id,
+        user_id=current_user.id,
         text=comment_data.text,
         is_expert_comment=is_expert
     )
 
     db.add(db_comment)
 
-    # Create audit log
     audit_log = AuditLog(
         action="COMMENT_CREATED",
         entity_type="Comment",
@@ -55,7 +65,7 @@ async def create_comment(
             "issue_id": issue_id,
             "text_length": len(comment_data.text)
         },
-        performed_by_id=user_id
+        performed_by_id=current_user.id
     )
     db.add(audit_log)
 
@@ -65,16 +75,16 @@ async def create_comment(
     return db_comment
 
 
-@router.get("/{issue_id}/comments", response_model=List[CommentResponse])
+@router.get("/{issue_id}/comments")
 async def list_comments(
     issue_id: int,
     sort_by: str = Query("recent", regex="^(recent|helpful)$"),
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
+    current_user: Optional[User] = Depends(get_optional_user),
     db: Session = Depends(get_db)
 ):
     """Get comments on an issue."""
-    # Check issue exists
     issue = db.query(Issue).filter(Issue.id == issue_id).first()
     if not issue:
         raise HTTPException(
@@ -82,22 +92,32 @@ async def list_comments(
             detail="Issue not found"
         )
 
+    if not _can_view(issue, current_user):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Issue not published yet"
+        )
+
     query = db.query(Comment)\
         .filter(Comment.issue_id == issue_id)\
-        .filter(Comment.flagged_at == None)  # Exclude flagged comments
+        .filter(Comment.flagged_at == None)
 
-    # Sort
     if sort_by == "helpful":
-        # TODO: Implement helpful count/reactions
         query = query.order_by(Comment.created_at.desc())
     else:
         query = query.order_by(Comment.created_at.desc())
 
+    total = query.count()
     comments = query.offset((page - 1) * per_page)\
         .limit(per_page)\
         .all()
 
-    return comments
+    return {
+        "items": comments,
+        "total": total,
+        "page": page,
+        "per_page": per_page
+    }
 
 
 @router.put("/{issue_id}/comments/{comment_id}", response_model=CommentResponse)
@@ -105,7 +125,7 @@ async def update_comment(
     issue_id: int,
     comment_id: int,
     updated_text: str,
-    user_id: int = None,  # TODO: Get from JWT
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Update a comment (user can update own, within 5 minutes of creation)."""
@@ -120,14 +140,16 @@ async def update_comment(
             detail="Comment not found"
         )
 
-    # TODO: Check permission (creator or admin)
-    # TODO: Check time limit (5 minutes after creation)
+    if comment.user_id != current_user.id and current_user.role not in ["moderator", "admin"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Permission denied"
+        )
 
     old_text = comment.text
     comment.text = updated_text
     comment.updated_at = datetime.utcnow()
 
-    # Create audit log
     audit_log = AuditLog(
         action="COMMENT_UPDATED",
         entity_type="Comment",
@@ -136,7 +158,7 @@ async def update_comment(
             "old_text_length": len(old_text),
             "new_text_length": len(updated_text)
         },
-        performed_by_id=user_id
+        performed_by_id=current_user.id
     )
     db.add(audit_log)
 
@@ -150,7 +172,7 @@ async def update_comment(
 async def delete_comment(
     issue_id: int,
     comment_id: int,
-    user_id: int = None,  # TODO: Get from JWT
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Delete a comment (creator or admin only)."""
@@ -165,16 +187,19 @@ async def delete_comment(
             detail="Comment not found"
         )
 
-    # TODO: Check permission (creator or admin)
+    if comment.user_id != current_user.id and current_user.role not in ["moderator", "admin"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Permission denied"
+        )
 
     db.delete(comment)
 
-    # Create audit log
     audit_log = AuditLog(
         action="COMMENT_DELETED",
         entity_type="Comment",
         entity_id=comment_id,
-        performed_by_id=user_id
+        performed_by_id=current_user.id
     )
     db.add(audit_log)
 
@@ -186,7 +211,7 @@ async def flag_comment(
     issue_id: int,
     comment_id: int,
     reason: str,
-    user_id: int = None,  # TODO: Get from JWT
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Report a comment for moderation."""
@@ -201,7 +226,6 @@ async def flag_comment(
             detail="Comment not found"
         )
 
-    # Check if already flagged
     if comment.flagged_at:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -211,13 +235,12 @@ async def flag_comment(
     comment.flagged_at = datetime.utcnow()
     comment.flag_reason = reason
 
-    # Create audit log
     audit_log = AuditLog(
         action="COMMENT_FLAGGED",
         entity_type="Comment",
         entity_id=comment_id,
         changes={"flag_reason": reason},
-        performed_by_id=user_id
+        performed_by_id=current_user.id
     )
     db.add(audit_log)
 
@@ -236,14 +259,10 @@ async def flag_comment(
 async def add_government_claim(
     issue_id: int,
     claim_data: GovernmentClaimCreate,
-    user_id: int = None,  # TODO: Get from JWT, ensure moderator/admin
+    current_user: User = Depends(get_current_moderator),
     db: Session = Depends(get_db)
 ):
-    """Add a government claim/response to an issue.
-
-    Used to track official government statements about the issue.
-    """
-    # Check issue exists
+    """Add a government claim/response to an issue."""
     issue = db.query(Issue).filter(Issue.id == issue_id).first()
     if not issue:
         raise HTTPException(
@@ -262,17 +281,15 @@ async def add_government_claim(
 
     db.add(db_claim)
 
-    # Create timeline event
     from models.models import ResolutionEvent
     event = ResolutionEvent(
         issue_id=issue_id,
         event_type="claim_made",
         event_description=f"Government claim: {claim_data.claimed_by}",
-        created_by_id=user_id
+        created_by_id=current_user.id
     )
     db.add(event)
 
-    # Create audit log
     audit_log = AuditLog(
         action="GOVERNMENT_CLAIM_ADDED",
         entity_type="GovernmentClaim",
@@ -280,7 +297,7 @@ async def add_government_claim(
             "issue_id": issue_id,
             "claimed_by": claim_data.claimed_by
         },
-        performed_by_id=user_id
+        performed_by_id=current_user.id
     )
     db.add(audit_log)
 
@@ -293,15 +310,21 @@ async def add_government_claim(
 @router.get("/{issue_id}/claims", response_model=List[GovernmentClaimResponse])
 async def list_government_claims(
     issue_id: int,
+    current_user: Optional[User] = Depends(get_optional_user),
     db: Session = Depends(get_db)
 ):
     """Get all government claims for an issue."""
-    # Check issue exists
     issue = db.query(Issue).filter(Issue.id == issue_id).first()
     if not issue:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Issue not found"
+        )
+
+    if not _can_view(issue, current_user):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Issue not published yet"
         )
 
     claims = db.query(GovernmentClaim)\
@@ -316,9 +339,9 @@ async def list_government_claims(
 async def verify_government_claim(
     issue_id: int,
     claim_id: int,
-    status: str,  # verified, disputed, contradicted
+    status: str,
     verification_notes: str = None,
-    user_id: int = None,  # TODO: Get from JWT, ensure moderator/admin
+    current_user: User = Depends(get_current_moderator),
     db: Session = Depends(get_db)
 ):
     """Verify or dispute a government claim based on evidence."""

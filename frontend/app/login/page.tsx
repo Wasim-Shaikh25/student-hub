@@ -20,7 +20,7 @@ export default function LoginPage() {
     if (result?.error) {
       setError(result.error)
     } else {
-      router.push('/')
+      router.push(result?.role === 'admin' ? '/admin' : '/')
       router.refresh()
     }
   }
