@@ -97,19 +97,26 @@ export type AuditLog = {
 }
 
 export type Case = {
-  id: string
+  id?: number | string
   title: string
   description: string
-  institution: string
   category: string
-  location: string
-  affectedCount: number
-  status: CaseStatus
-  resolutionConfidence: number
-  creatorId: string
-  createdAt: string
-  updatedAt: string
-  authorityResponse?: string
+  status?: CaseStatus
+  resolution_confidence?: number
+  resolutionConfidence?: number
+  creator_id?: string | number
+  creatorId?: string | number
+  created_at?: string
+  createdAt?: string
+  updated_at?: string
+  updatedAt?: string
+  estimated_affected_people?: number
+  state_id?: number
+  district_id?: number
+  block_id?: number
+  ward_id?: number
+  latitude?: number
+  longitude?: number
 }
 
 export type DbSchema = {
