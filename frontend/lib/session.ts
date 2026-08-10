@@ -1,13 +1,13 @@
 import { cookies } from 'next/headers'
 import { sealData, unsealData } from 'iron-session'
-import { getDb } from './db'
-import type { User, UserRole } from './types'
+import type { UserRole } from './types'
 
 export type SessionUser = {
   id: string
   email: string
   name: string
   role: UserRole
+  accessToken?: string
 }
 
 const SESSION_SECRET =
@@ -48,12 +48,6 @@ export async function clearSessionUser() {
   })
 }
 
-export async function getCurrentUser(): Promise<User | null> {
-  const session = await getSessionUser()
-  if (!session) return null
-  const db = getDb()
-  return db.data.users.find((u) => u.id === session.id) || null
-}
 
 export function requireAuth(): Promise<SessionUser> {
   return getSessionUser().then((user) => {
