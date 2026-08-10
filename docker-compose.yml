@@ -1,0 +1,74 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database with PostGIS
+  postgres:
+    image: postgis/postgis:15-3.3
+    container_name: civic_audit_db
+    environment:
+      POSTGRES_USER: civic_audit
+      POSTGRES_PASSWORD: secure_password_change_me
+      POSTGRES_DB: civic_audit
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/migrations/001_initial_schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U civic_audit"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis (for Celery tasks - optional)
+  redis:
+    image: redis:7-alpine
+    container_name: civic_audit_redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # FastAPI Backend
+  backend:
+    build: ./backend
+    container_name: civic_audit_api
+    environment:
+      DATABASE_URL: postgresql://civic_audit:secure_password_change_me@postgres:5432/civic_audit
+      REDIS_URL: redis://redis:6379/0
+      SECRET_KEY: dev-secret-key-change-in-production
+      ENVIRONMENT: development
+      DEBUG: "True"
+      ALLOWED_ORIGINS: http://localhost:3000,http://localhost:8000
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  # Next.js Frontend (optional, for reference)
+  frontend:
+    build: ./frontend
+    container_name: civic_audit_web
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000/api/v1
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    command: npm run dev
+
+volumes:
+  postgres_data:
+
+networks:
+  default:
+    name: civic_audit_network
