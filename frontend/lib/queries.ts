@@ -1,5 +1,6 @@
 import { getSessionUser } from './session'
 import type { Case } from './types'
+import { DEMO_INVESTIGATIONS, DEMO_SCHEME_RECORDS, getDemoInvestigationById, getDemoSchemeById } from './demo-data'
 
 interface ApiResponse {
   [key: string]: unknown
@@ -169,8 +170,8 @@ export async function getSchemes(filters?: { state_id?: number; financial_year?:
     const result = await serverApi.request('GET', `/spending/schemes${queryString ? '?' + queryString : ''}`)
     return (result.items as unknown[] || []) as Record<string, unknown>[]
   } catch (error) {
-    console.error('Failed to fetch schemes:', error)
-    return []
+    console.error('Failed to fetch schemes, using demo fallback:', error)
+    return DEMO_SCHEME_RECORDS as Record<string, unknown>[]
   }
 }
 
@@ -179,8 +180,8 @@ export async function getSchemeById(id: string): Promise<Record<string, unknown>
     const result = await serverApi.request('GET', `/spending/schemes/${encodeURIComponent(id)}`)
     return result as Record<string, unknown>
   } catch (error) {
-    console.error('Failed to fetch scheme:', error)
-    return undefined
+    console.error('Failed to fetch scheme, using demo fallback:', error)
+    return getDemoSchemeById(id) as Record<string, unknown> | undefined
   }
 }
 
@@ -195,8 +196,8 @@ export async function getInvestigations(filters?: { verdict?: string; page?: num
     const result = await serverApi.request('GET', `/investigations${queryString ? '?' + queryString : ''}`)
     return (result.items as unknown[] || []) as ApiResponse[]
   } catch (error) {
-    console.error('Failed to fetch investigations:', error)
-    return []
+    console.error('Failed to fetch investigations, using demo fallback:', error)
+    return DEMO_INVESTIGATIONS as ApiResponse[]
   }
 }
 
@@ -205,7 +206,7 @@ export async function getInvestigationById(id: string) {
     const result = await serverApi.request('GET', `/investigations/${id}`)
     return result as ApiResponse
   } catch (error) {
-    console.error('Failed to fetch investigation:', error)
-    return undefined
+    console.error('Failed to fetch investigation, using demo fallback:', error)
+    return getDemoInvestigationById(id) as ApiResponse
   }
 }
