@@ -20,12 +20,8 @@ const STATES = [
 
 export function CaseForm({
   categories,
-  institutions,
-  locations,
 }: {
   categories: string[]
-  institutions: string[]
-  locations: string[]
 }) {
   const router = useRouter()
   const [files, setFiles] = useState<File[]>([])

@@ -68,9 +68,9 @@ class ApiClient {
     try {
       const res = await this.client.get('/auth/me');
       return res.data;
-    } catch (error) {
+    } catch (err: unknown) {
       this.clearToken();
-      throw error;
+      throw err;
     }
   }
 
@@ -107,7 +107,7 @@ class ApiClient {
     return res.data;
   }
 
-  async updateIssue(id: number, data: any) {
+  async updateIssue(id: number, data: Record<string, unknown>) {
     const res = await this.client.put(`/issues/${id}`, data);
     return res.data;
   }

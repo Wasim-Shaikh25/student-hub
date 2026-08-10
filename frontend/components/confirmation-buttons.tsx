@@ -5,12 +5,12 @@ import { addConfirmation } from '@/lib/actions'
 
 export function ConfirmationButtons({
   caseId,
-  initialAffected,
-  initialResolved,
+  initialAffected = false,
+  initialResolved = false,
 }: {
   caseId: string
-  initialAffected: boolean
-  initialResolved: boolean
+  initialAffected?: boolean
+  initialResolved?: boolean
 }) {
   const [affected, setAffected] = useState(initialAffected)
   const [resolved, setResolved] = useState(initialResolved)

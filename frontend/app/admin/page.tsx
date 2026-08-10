@@ -3,7 +3,7 @@ import { getSessionUser } from '@/lib/session'
 
 export default async function AdminPage() {
   const session = await getSessionUser()
-  if (!session || session.role !== 'Moderator' && session.role !== 'Admin') {
+  if (!session || session.role !== 'SuperAdmin') {
     notFound()
   }
 

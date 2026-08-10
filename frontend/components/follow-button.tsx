@@ -8,7 +8,8 @@ export function FollowButton({ caseId, initial }: { caseId: string; initial: boo
   return (
     <form
       action={async () => {
-        await followCase(caseId)
+        void caseId // TODO: Use caseId when API is ready
+        await followCase()
         setFollowing(!following)
       }}
     >

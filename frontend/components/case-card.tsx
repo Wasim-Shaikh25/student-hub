@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { StatusBadge } from './status-badge'
-import { FileText, Users } from 'lucide-react'
+import { Users } from 'lucide-react'
 import type { Case } from '@/lib/types'
 
 export function CaseCard({ case: c }: { case: Case }) {

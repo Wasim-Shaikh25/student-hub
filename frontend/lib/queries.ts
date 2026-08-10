@@ -1,6 +1,10 @@
 import { getSessionUser } from './session'
 import type { Case } from './types'
 
+interface ApiResponse {
+  [key: string]: unknown
+}
+
 class ServerApiClient {
   private baseURL: string
 
@@ -8,7 +12,7 @@ class ServerApiClient {
     this.baseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'
   }
 
-  private async request(method: string, path: string, token?: string) {
+  private async request(method: string, path: string, token?: string): Promise<ApiResponse> {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
     }
@@ -27,10 +31,10 @@ class ServerApiClient {
       throw new Error(`API error: ${response.statusText}`)
     }
 
-    return response.json()
+    return response.json() as Promise<ApiResponse>
   }
 
-  async listIssues(filters?: any, token?: string) {
+  async listIssues(filters?: ApiResponse, token?: string): Promise<ApiResponse> {
     const params = new URLSearchParams()
     if (filters) {
       Object.entries(filters).forEach(([key, value]) => {
@@ -41,19 +45,19 @@ class ServerApiClient {
     return this.request('GET', `/issues${queryString ? '?' + queryString : ''}`, token)
   }
 
-  async getIssue(id: number, token?: string) {
+  async getIssue(id: number, token?: string): Promise<ApiResponse> {
     return this.request('GET', `/issues/${id}`, token)
   }
 
-  async listEvidence(issueId: number, token?: string) {
+  async listEvidence(issueId: number, token?: string): Promise<ApiResponse> {
     return this.request('GET', `/issues/${issueId}/evidence`, token)
   }
 
-  async listComments(issueId: number, token?: string) {
+  async listComments(issueId: number, token?: string): Promise<ApiResponse> {
     return this.request('GET', `/issues/${issueId}/comments`, token)
   }
 
-  async getConfirmations(issueId: number, token?: string) {
+  async getConfirmations(issueId: number, token?: string): Promise<ApiResponse> {
     return this.request('GET', `/issues/${issueId}/confirmations`, token)
   }
 }
@@ -83,7 +87,7 @@ export async function getCases(filters?: { status?: string; category?: string })
   try {
     const session = await getSessionUser()
     const result = await serverApi.listIssues(filters, session?.accessToken)
-    return result.items || []
+    return (result.items as unknown[] || []) as Case[]
   } catch (error) {
     console.error('Failed to fetch cases:', error)
     return []
@@ -94,7 +98,7 @@ export async function getCaseById(id: string): Promise<Case | undefined> {
   try {
     const session = await getSessionUser()
     const result = await serverApi.getIssue(Number(id), session?.accessToken)
-    return result
+    return result as Case
   } catch (error) {
     console.error('Failed to fetch case:', error)
     return undefined
@@ -116,11 +120,12 @@ export async function getCaseComments(caseId: string) {
   try {
     const session = await getSessionUser()
     const result = await serverApi.listComments(Number(caseId), session?.accessToken)
-    return (result.items || []).map((c: any) => ({
+    return ((result.items as unknown[] || []) as Record<string, unknown>[]).map((c) => ({
       ...c,
       user: { id: c.user_id, name: c.user_display_name, email: '' }
     }))
-  } catch (error) {
+  } catch (err: unknown) {
+    const error = err instanceof Error ? err.message : 'Unknown error'
     console.error('Failed to fetch comments:', error)
     return []
   }
@@ -130,27 +135,24 @@ export async function getCaseConfirmations(caseId: string) {
   try {
     const session = await getSessionUser()
     const result = await serverApi.getConfirmations(Number(caseId), session?.accessToken)
-    return result.items || []
-  } catch (error) {
+    return (result.items as unknown[] || [])
+  } catch (err: unknown) {
+    const error = err instanceof Error ? err.message : 'Unknown error'
     console.error('Failed to fetch confirmations:', error)
     return []
   }
 }
 
 export async function getUserById(id: string) {
-  try {
-    return { id, name: 'User', email: '' }
-  } catch (error) {
-    return undefined
-  }
+  return { id, name: 'User', email: '' }
 }
 
-export async function isFollowing(caseId: string) {
+export async function isFollowing(): Promise<boolean> {
   // TODO: Implement following logic when API endpoint is available
   return false
 }
 
-export async function getMyCases() {
+export async function getMyCases(): Promise<{ created: Case[]; joined: Case[]; following: Case[] }> {
   // TODO: Implement fetching user's cases from API
   return { created: [], joined: [], following: [] }
 }

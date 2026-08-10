@@ -5,14 +5,22 @@ import { redirect } from 'next/navigation'
 import { getSessionUser, setSessionUser, clearSessionUser } from './session'
 
 // Server-side API client that doesn't require browser localStorage
+interface ApiResponse {
+  [key: string]: unknown
+}
+
+interface ApiError {
+  detail?: string
+}
+
 class ServerApiClient {
   private baseURL: string
 
-  constructor(token?: string) {
+  constructor() {
     this.baseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'
   }
 
-  private async request(method: string, path: string, data?: any, token?: string) {
+  private async request(method: string, path: string, data?: ApiResponse, token?: string): Promise<ApiResponse> {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
     }
@@ -28,30 +36,26 @@ class ServerApiClient {
     })
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({}))
+      const error = await response.json().catch(() => ({})) as ApiError
       throw new Error(error.detail || `API error: ${response.statusText}`)
     }
 
-    return response.json()
+    return response.json() as Promise<ApiResponse>
   }
 
-  async register(email: string, displayName: string, password: string, token?: string) {
-    return this.request('POST', '/auth/register', { email, display_name: displayName, password }, token)
+  async register(email: string, displayName: string, password: string): Promise<ApiResponse> {
+    return this.request('POST', '/auth/register', { email, display_name: displayName, password })
   }
 
-  async login(email: string, password: string) {
+  async login(email: string, password: string): Promise<ApiResponse> {
     return this.request('POST', '/auth/login', { email, password })
   }
 
-  async getCurrentUser(token: string) {
-    return this.request('GET', '/auth/me', undefined, token)
-  }
-
-  async createIssue(data: any, token: string) {
+  async createIssue(data: ApiResponse, token: string): Promise<ApiResponse> {
     return this.request('POST', '/issues', data, token)
   }
 
-  async listIssues(filters?: any, token?: string) {
+  async listIssues(filters?: ApiResponse, token?: string): Promise<ApiResponse> {
     const params = new URLSearchParams()
     if (filters) {
       Object.entries(filters).forEach(([key, value]) => {
@@ -62,11 +66,11 @@ class ServerApiClient {
     return this.request('GET', `/issues${queryString ? '?' + queryString : ''}`, undefined, token)
   }
 
-  async getIssue(id: number, token?: string) {
+  async getIssue(id: number, token?: string): Promise<ApiResponse> {
     return this.request('GET', `/issues/${id}`, undefined, token)
   }
 
-  async uploadEvidence(issueId: number, formData: FormData, token: string) {
+  async uploadEvidence(issueId: number, formData: FormData, token: string): Promise<ApiResponse> {
     const response = await fetch(`${this.baseURL}/issues/${issueId}/evidence`, {
       method: 'POST',
       headers: {
@@ -79,14 +83,14 @@ class ServerApiClient {
       throw new Error(`Failed to upload evidence: ${response.statusText}`)
     }
 
-    return response.json()
+    return response.json() as Promise<ApiResponse>
   }
 
-  async addConfirmation(issueId: number, confirmationType: 'affected' | 'resolved', token: string) {
+  async addConfirmation(issueId: number, confirmationType: 'affected' | 'resolved', token: string): Promise<ApiResponse> {
     return this.request('POST', `/issues/${issueId}/confirm`, { confirmation_type: confirmationType }, token)
   }
 
-  async addComment(issueId: number, text: string, token: string) {
+  async addComment(issueId: number, text: string, token: string): Promise<ApiResponse> {
     return this.request('POST', `/issues/${issueId}/comments`, { text }, token)
   }
 }
@@ -105,17 +109,21 @@ export async function register(formData: FormData) {
 
     const result = await serverApi.register(email, name, password)
 
+    const userId = String(result.id)
+    const userRole = String(result.role) as 'Student' | 'Expert' | 'NGO' | 'Lawyer' | 'SuperAdmin'
+
     await setSessionUser({
-      id: result.id,
-      email: result.email,
-      name: result.display_name,
-      role: result.role,
-      accessToken: result.access_token,
+      id: userId,
+      email: String(result.email),
+      name: String(result.display_name),
+      role: userRole,
+      accessToken: String(result.access_token),
     })
 
-    return { success: true, userId: result.id }
-  } catch (error: any) {
-    return { error: error.message || 'Registration failed' }
+    return { success: true, userId }
+  } catch (err: unknown) {
+    const error = err instanceof Error ? err : new Error('Registration failed')
+    return { error: error.message }
   }
 }
 
@@ -130,23 +138,31 @@ export async function login(formData: FormData) {
 
     const result = await serverApi.login(email, password)
 
+    const userId = String(result.id)
+    const userRole = String(result.role) as 'Student' | 'Expert' | 'NGO' | 'Lawyer' | 'SuperAdmin'
+
     await setSessionUser({
-      id: result.id,
-      email: result.email,
-      name: result.display_name,
-      role: result.role,
-      accessToken: result.access_token,
+      id: userId,
+      email: String(result.email),
+      name: String(result.display_name),
+      role: userRole,
+      accessToken: String(result.access_token),
     })
 
-    return { success: true, userId: result.id }
-  } catch (error: any) {
-    return { error: error.message || 'Login failed' }
+    return { success: true, userId }
+  } catch (err: unknown) {
+    const error = err instanceof Error ? err : new Error('Login failed')
+    return { error: error.message }
   }
 }
 
 export async function logout() {
   await clearSessionUser()
   redirect('/login')
+}
+
+export async function followCase(): Promise<void> {
+  // TODO: Implement following logic when API endpoint is available
 }
 
 export async function createCase(formData: FormData) {
@@ -185,7 +201,7 @@ export async function createCase(formData: FormData) {
         evidenceFormData.append('title', file.name)
 
         try {
-          await serverApi.uploadEvidence(issueResult.id, evidenceFormData, session.accessToken)
+          await serverApi.uploadEvidence(Number(issueResult.id), evidenceFormData, session.accessToken)
         } catch (error) {
           console.error('Failed to upload evidence:', error)
         }
@@ -194,8 +210,9 @@ export async function createCase(formData: FormData) {
 
     revalidatePath('/')
     return { success: true, caseId: issueResult.id }
-  } catch (error: any) {
-    return { error: error.message || 'Failed to create issue' }
+  } catch (err: unknown) {
+    const error = err instanceof Error ? err : new Error('Failed to create issue')
+    return { error: error.message }
   }
 }
 
@@ -207,8 +224,9 @@ export async function addConfirmation(caseId: string, type: 'affected' | 'resolv
     await serverApi.addConfirmation(Number(caseId), type, session.accessToken)
     revalidatePath(`/cases/${caseId}`)
     return { success: true }
-  } catch (error: any) {
-    return { error: error.message || 'Failed to add confirmation' }
+  } catch (err: unknown) {
+    const error = err instanceof Error ? err : new Error('Failed to add confirmation')
+    return { error: error.message }
   }
 }
 
@@ -222,7 +240,8 @@ export async function addComment(caseId: string, formData: FormData) {
 
     await serverApi.addComment(Number(caseId), text, session.accessToken)
     revalidatePath(`/cases/${caseId}`)
-  } catch (error) {
+  } catch (err: unknown) {
+    const error = err instanceof Error ? err.message : 'Failed to add comment'
     console.error('Failed to add comment:', error)
   }
 }
@@ -249,7 +268,8 @@ export async function uploadEvidence(caseId: string, formData: FormData) {
 
     revalidatePath(`/cases/${caseId}`)
     return { success: true }
-  } catch (error: any) {
-    return { error: error.message || 'Failed to upload evidence' }
+  } catch (err: unknown) {
+    const error = err instanceof Error ? err : new Error('Failed to upload evidence')
+    return { error: error.message }
   }
 }
