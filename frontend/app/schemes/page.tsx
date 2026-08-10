@@ -25,14 +25,22 @@ interface SchemeRecord {
   extracted_at?: string
 }
 
-export default async function SchemesPage({ searchParams }: SchemesPageProps) {
-  const state_id = searchParams.state_id ? Number(searchParams.state_id) : undefined
-  const financial_year = searchParams.financial_year
+function parseStateId(value: string | undefined): number | undefined {
+  if (!value) return undefined
+  const n = Number(value)
+  return Number.isFinite(n) && n > 0 ? n : undefined
+}
 
+export default async function SchemesPage({ searchParams }: SchemesPageProps) {
+  const state_id = parseStateId(searchParams.state_id)
+  const financial_year = searchParams.financial_year?.trim() || undefined
+
+  // Fetch facets from the full, unfiltered list so the dropdowns stay populated.
+  const allSchemes = (await getSchemes()) as SchemeRecord[]
   const schemes = (await getSchemes({ state_id, financial_year })) as SchemeRecord[]
 
-  const states = Array.from(new Set(schemes.map((s) => s.applicable_state_id).filter(Boolean)))
-  const years = Array.from(new Set(schemes.map((s) => s.financial_year).filter(Boolean)))
+  const states = Array.from(new Set(allSchemes.map((s) => s.applicable_state_id).filter(Boolean)))
+  const years = Array.from(new Set(allSchemes.map((s) => s.financial_year).filter(Boolean)))
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8">
