@@ -1,4 +1,4 @@
-import { getSchemes } from '@/lib/queries'
+import { getSchemes, getSchemeFacets } from '@/lib/queries'
 import Link from 'next/link'
 
 export const dynamic = 'force-dynamic'
@@ -28,19 +28,20 @@ interface SchemeRecord {
 function parseStateId(value: string | undefined): number | undefined {
   if (!value) return undefined
   const n = Number(value)
-  return Number.isFinite(n) && n > 0 ? n : undefined
+  return Number.isInteger(n) && n > 0 ? n : undefined
 }
 
 export default async function SchemesPage({ searchParams }: SchemesPageProps) {
   const state_id = parseStateId(searchParams.state_id)
   const financial_year = searchParams.financial_year?.trim() || undefined
 
-  // Fetch facets from the full, unfiltered list so the dropdowns stay populated.
-  const allSchemes = (await getSchemes()) as SchemeRecord[]
-  const schemes = (await getSchemes({ state_id, financial_year })) as SchemeRecord[]
+  const [facets, schemes] = await Promise.all([
+    getSchemeFacets(),
+    getSchemes({ state_id, financial_year }) as Promise<SchemeRecord[]>,
+  ])
 
-  const states = Array.from(new Set(allSchemes.map((s) => s.applicable_state_id).filter(Boolean)))
-  const years = Array.from(new Set(allSchemes.map((s) => s.financial_year).filter(Boolean)))
+  const states = facets.state_ids
+  const years = facets.financial_years
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8">
