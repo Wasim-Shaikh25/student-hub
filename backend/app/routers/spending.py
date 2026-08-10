@@ -42,6 +42,20 @@ async def list_schemes(
     }
 
 
+@router.get("/schemes/facets")
+async def get_scheme_facets(db: Session = Depends(get_db)):
+    """Return distinct states and financial years available across budget schemes."""
+    budget_records = db.query(SpendingEvidence).filter(SpendingEvidence.source_type == "budget").all()
+
+    state_ids = sorted({r.applicable_state_id for r in budget_records if r.applicable_state_id is not None})
+    financial_years = sorted({r.financial_year for r in budget_records if r.financial_year})
+
+    return {
+        "state_ids": state_ids,
+        "financial_years": financial_years,
+    }
+
+
 @router.get("/schemes/{scheme_id}")
 async def get_scheme_detail(
     scheme_id: str,

@@ -184,6 +184,25 @@ export async function getModerationQueue() {
   }
 }
 
+export async function getSchemeFacets(): Promise<{ state_ids: number[]; financial_years: string[] }> {
+  try {
+    const result = await serverApi.request('GET', '/spending/schemes/facets')
+    return {
+      state_ids: (result.state_ids as number[]) || [],
+      financial_years: (result.financial_years as string[]) || [],
+    }
+  } catch (error) {
+    if (!isConnectionError(error)) {
+      console.error('Failed to fetch scheme facets:', error)
+      return { state_ids: [], financial_years: [] }
+    }
+    console.error('Backend unreachable, using demo scheme facets fallback:', error)
+    const state_ids = Array.from(new Set(DEMO_SCHEME_RECORDS.map((s) => s.applicable_state_id).filter((id) => id !== undefined))) as number[]
+    const financial_years = Array.from(new Set(DEMO_SCHEME_RECORDS.map((s) => s.financial_year).filter(Boolean))) as string[]
+    return { state_ids, financial_years }
+  }
+}
+
 export async function getSchemes(filters?: { state_id?: number; financial_year?: string }): Promise<Record<string, unknown>[]> {
   try {
     const params = new URLSearchParams()
