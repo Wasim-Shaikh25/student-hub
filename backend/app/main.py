@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse
 import sys
 import os
@@ -185,7 +186,7 @@ normalize_evidence_urls()
 
 app = FastAPI(
     title=settings.APP_NAME,
-    description="India's Civic Accountability Platform - Evidence-First Government Spending Tracking",
+    description="India's Public Accountability Platform - Evidence-First Government Spending Tracking",
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
@@ -213,6 +214,12 @@ app.add_middleware(
 )
 
 
+# Serve uploaded evidence files directly from the backend storage directory.
+EVIDENCE_DIR = os.path.abspath(os.environ.get("EVIDENCE_STORAGE_DIR", "storage/evidence"))
+os.makedirs(EVIDENCE_DIR, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=EVIDENCE_DIR), name="uploads")
+
+
 # Health check endpoint
 @app.get("/health")
 async def health_check():
@@ -227,7 +234,7 @@ async def health_check():
 @app.get("/")
 async def root():
     return {
-        "message": "CivicAudit API",
+        "message": "PublicWatch API",
         "version": "1.0.0",
         "docs": "/docs",
         "redoc": "/redoc",

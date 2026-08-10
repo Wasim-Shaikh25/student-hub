@@ -10,7 +10,15 @@ from models.models import (
     Issue, User, CivicEvidence, AuditLog, IssueStatus,
     EvidenceVerificationState
 )
-from schemas.schemas import AdminIssueModeration, AdminEvidenceReview, AuditLogResponse
+from schemas.schemas import (
+    AdminIssueModeration,
+    AdminEvidenceReview,
+    AuditLogResponse,
+    UserListResponse,
+    IssueListEnvelope,
+    ModerationQueueResponse,
+    IssueListResponse,
+)
 
 router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
 
@@ -39,7 +47,8 @@ async def get_moderation_queue(
             "queue_type": "issues",
             "total": total,
             "page": page,
-            "items": items
+            "per_page": per_page,
+            "items": [IssueListResponse.model_validate(i) for i in items]
         }
 
     elif queue_type == "evidence":
@@ -211,7 +220,7 @@ async def admin_verify_evidence(
 
 # ======================= USER MANAGEMENT =======================
 
-@router.get("/users")
+@router.get("/users", response_model=UserListResponse)
 async def list_users(
     role: str = None,
     is_active: bool = None,
@@ -239,7 +248,39 @@ async def list_users(
     return {
         "total": total,
         "page": page,
+        "per_page": per_page,
         "users": users
+    }
+
+
+@router.get("/cases", response_model=IssueListEnvelope)
+async def list_all_cases(
+    status: str = None,
+    category: str = None,
+    page: int = Query(1, ge=1),
+    per_page: int = Query(20, ge=1, le=100),
+    current_user: User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """List all cases for admin review."""
+    query = db.query(Issue)
+
+    if status:
+        query = query.filter(Issue.status == status)
+    if category:
+        query = query.filter(Issue.category == category)
+
+    total = query.count()
+    issues = query.order_by(Issue.created_at.desc())\
+        .offset((page - 1) * per_page)\
+        .limit(per_page)\
+        .all()
+
+    return {
+        "total": total,
+        "page": page,
+        "per_page": per_page,
+        "items": [IssueListResponse.model_validate(i) for i in issues]
     }
 
 

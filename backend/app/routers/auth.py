@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from config.database import get_db
 from config.settings import settings
-from schemas.schemas import UserCreate, UserLogin, AdminLogin, Token, UserResponse
+from schemas.schemas import UserCreate, UserLogin, AdminLogin, Token, UserResponse, UserProfileUpdate, UserPasswordUpdate
 from models.models import User
 from services.auth_service import (
     create_user,
@@ -12,6 +12,8 @@ from services.auth_service import (
     authenticate_admin,
     create_access_token,
     get_user_by_email,
+    get_password_hash,
+    verify_password,
 )
 from app.middleware.auth_middleware import get_current_user
 
@@ -74,3 +76,43 @@ async def admin_login(credentials: AdminLogin, db: Session = Depends(get_db)):
 async def me(current_user: User = Depends(get_current_user)):
     """Get current authenticated user."""
     return current_user
+
+
+@router.put("/me", response_model=UserResponse)
+async def update_me(
+    update: UserProfileUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Update the current user's profile."""
+    if update.display_name is not None:
+        current_user.display_name = update.display_name
+    if update.bio is not None:
+        current_user.bio = update.bio
+    if update.phone is not None:
+        existing = db.query(User).filter(User.phone == update.phone, User.id != current_user.id).first()
+        if existing:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Phone number already in use")
+        current_user.phone = update.phone
+    current_user.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(current_user)
+    return current_user
+
+
+@router.put("/me/password")
+async def update_password(
+    update: UserPasswordUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Update the current user's password."""
+    if not verify_password(update.current_password, current_user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Current password is incorrect"
+        )
+    current_user.password_hash = get_password_hash(update.new_password)
+    current_user.updated_at = datetime.utcnow()
+    db.commit()
+    return {"message": "Password updated"}

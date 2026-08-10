@@ -11,8 +11,8 @@ export type SessionUser = {
 }
 
 const SESSION_SECRET =
-  process.env.SESSION_SECRET || 'studentshub-default-secret-min-32-characters!'
-const COOKIE_NAME = 'studentshub_session'
+  process.env.SESSION_SECRET || 'publicwatch-default-secret-min-32-characters!'
+const COOKIE_NAME = 'publicwatch_session'
 
 export async function getSessionUser(): Promise<SessionUser | null> {
   const cookie = cookies().get(COOKIE_NAME)

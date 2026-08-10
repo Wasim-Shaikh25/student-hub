@@ -26,10 +26,15 @@ class UserResponse(BaseModel):
     id: int
     email: str
     display_name: str
+    phone: Optional[str] = None
+    bio: Optional[str] = None
     role: str
     verification_status: str
     avatar_url: Optional[str] = None
+    is_active: bool = True
+    is_banned: bool = False
     created_at: datetime
+    updated_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
@@ -39,6 +44,11 @@ class UserProfileUpdate(BaseModel):
     display_name: Optional[str] = None
     bio: Optional[str] = None
     phone: Optional[str] = None
+
+
+class UserPasswordUpdate(BaseModel):
+    current_password: str
+    new_password: str = Field(min_length=8)
 
 
 # ======================== GEOGRAPHY SCHEMAS ========================
@@ -246,6 +256,28 @@ class SpendingContext(BaseModel):
     audits: List[SpendingEvidenceResponse] = []
     last_updated: datetime
     data_quality: str  # high, medium, low
+
+
+class UserListResponse(BaseModel):
+    total: int
+    page: int
+    per_page: int
+    users: List[UserResponse]
+
+
+class IssueListEnvelope(BaseModel):
+    total: int
+    page: int
+    per_page: int
+    items: List[IssueListResponse]
+
+
+class ModerationQueueResponse(BaseModel):
+    queue_type: str
+    total: int
+    page: int
+    per_page: int
+    items: List[IssueListResponse]
 
 
 # ======================== ADMIN SCHEMAS ========================
