@@ -56,16 +56,17 @@ async def root():
 
 
 # Import routers
-from app.routers import auth, issues, evidence, confirmations, comments, spending, admin
+from app.routers import auth, issues, evidence, confirmations, comments, spending, admin, investigations
 
 # Include routers
-app.include_router(auth.router, prefix=settings.API_V1_PREFIX)
-app.include_router(issues.router, prefix=settings.API_V1_PREFIX)
-app.include_router(evidence.router, prefix=settings.API_V1_PREFIX)
-app.include_router(confirmations.router, prefix=settings.API_V1_PREFIX)
-app.include_router(comments.router, prefix=settings.API_V1_PREFIX)
-app.include_router(spending.router, prefix=settings.API_V1_PREFIX)
-app.include_router(admin.router, prefix=settings.API_V1_PREFIX)
+app.include_router(auth.router)
+app.include_router(issues.router)
+app.include_router(evidence.router)
+app.include_router(confirmations.router)
+app.include_router(comments.router)
+app.include_router(spending.router)
+app.include_router(admin.router)
+app.include_router(investigations.router)
 
 
 if __name__ == "__main__":

@@ -44,6 +44,13 @@ class UserRole(str, PyEnum):
     ADMIN = "admin"
 
 
+class AnalysisVerdict(str, PyEnum):
+    SUPPORTED = "supported"
+    MISLEADING = "misleading"
+    CONTRADICTED = "contradicted"
+    UNVERIFIED = "unverified"
+
+
 # ======================== USERS ========================
 class User(Base):
     __tablename__ = "users"
@@ -349,6 +356,126 @@ class Comment(Base):
 
     __table_args__ = (
         Index("ix_comments_issue_created", "issue_id", "created_at"),
+    )
+
+
+# ======================== NEWS INVESTIGATIONS ========================
+class NewsArticle(Base):
+    __tablename__ = "news_articles"
+
+    id = Column(Integer, primary_key=True, index=True)
+    source = Column(String(255), nullable=False)
+    title = Column(String(500), nullable=False, index=True)
+    url = Column(String(2000), nullable=False, unique=True, index=True)
+    published_at = Column(DateTime, nullable=True)
+    summary = Column(Text, nullable=True)
+
+    article_hash = Column(String(255), nullable=True, unique=True)
+    status = Column(String(50), default="ingested")  # ingested, selected, analyzed, published
+
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+
+    # Relationships
+    claims = relationship("Claim", back_populates="article", cascade="all, delete-orphan")
+    analysis = relationship("Analysis", back_populates="article", uselist=False)
+
+    __table_args__ = (
+        Index("ix_articles_status_created", "status", "created_at"),
+    )
+
+
+class Claim(Base):
+    __tablename__ = "claims"
+
+    id = Column(Integer, primary_key=True, index=True)
+    article_id = Column(Integer, ForeignKey("news_articles.id"), nullable=False)
+
+    claim_text = Column(Text, nullable=False)
+    importance = Column(String(50), default="medium")  # high, medium, low
+    status = Column(String(50), default="pending")  # pending, analyzed, verified
+
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+
+    # Relationships
+    article = relationship("NewsArticle", back_populates="claims")
+    evidence_items = relationship("NewsEvidence", back_populates="claim", cascade="all, delete-orphan")
+
+    __table_args__ = (
+        Index("ix_claims_article_status", "article_id", "status"),
+    )
+
+
+class NewsEvidence(Base):
+    __tablename__ = "news_evidence"
+
+    id = Column(Integer, primary_key=True, index=True)
+    claim_id = Column(Integer, ForeignKey("claims.id"), nullable=False)
+
+    url = Column(String(2000), nullable=False)
+    title = Column(String(500), nullable=False)
+    source_type = Column(String(50), nullable=False)  # primary_source, news, research, government_document
+    published_at = Column(DateTime, nullable=True)
+
+    excerpt = Column(Text, nullable=True)
+    relation = Column(String(50), nullable=False)  # supports, contradicts, context, insufficient
+
+    source_authority_score = Column(Numeric(3, 2), default=0)  # 0-1
+    relevance_score = Column(Numeric(3, 2), default=0)  # 0-1
+    recency_score = Column(Numeric(3, 2), default=0)  # 0-1
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Relationships
+    claim = relationship("Claim", back_populates="evidence_items")
+    analysis_sources = relationship("AnalysisSource", back_populates="evidence")
+
+    __table_args__ = (
+        Index("ix_evidence_claim_relation", "claim_id", "relation"),
+    )
+
+
+class Analysis(Base):
+    __tablename__ = "analyses"
+
+    id = Column(Integer, primary_key=True, index=True)
+    article_id = Column(Integer, ForeignKey("news_articles.id"), nullable=False, unique=True)
+
+    verdict = Column(String(50), nullable=False)  # supported, misleading, contradicted, unverified
+    confidence = Column(Numeric(3, 2), default=0)  # 0-1
+
+    summary = Column(Text, nullable=False)
+    detailed_explanation = Column(Text, nullable=True)
+
+    quality_score = Column(Numeric(3, 2), default=0)  # 0-1 based on evidence quality
+    conflicting_sources = Column(Boolean, default=False)
+    missing_citations = Column(Boolean, default=False)
+
+    published_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+
+    # Relationships
+    article = relationship("NewsArticle", back_populates="analysis")
+    sources = relationship("AnalysisSource", back_populates="analysis", cascade="all, delete-orphan")
+
+    __table_args__ = (
+        Index("ix_analyses_verdict_created", "verdict", "created_at"),
+    )
+
+
+class AnalysisSource(Base):
+    __tablename__ = "analysis_sources"
+
+    id = Column(Integer, primary_key=True, index=True)
+    analysis_id = Column(Integer, ForeignKey("analyses.id"), nullable=False)
+    evidence_id = Column(Integer, ForeignKey("news_evidence.id"), nullable=False)
+
+    # Relationships
+    analysis = relationship("Analysis", back_populates="sources")
+    evidence = relationship("NewsEvidence", back_populates="analysis_sources")
+
+    __table_args__ = (
+        UniqueConstraint("analysis_id", "evidence_id", name="uq_analysis_evidence"),
+        Index("ix_analysis_sources_analysis", "analysis_id"),
     )
 
 

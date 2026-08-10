@@ -266,6 +266,87 @@ class AuditLogResponse(BaseModel):
         from_attributes = True
 
 
+# ======================== NEWS INVESTIGATION SCHEMAS ========================
+class NewsEvidenceResponse(BaseModel):
+    id: int
+    url: str
+    title: str
+    source_type: str
+    published_at: Optional[datetime] = None
+    excerpt: Optional[str] = None
+    relation: str
+    source_authority_score: Decimal
+    relevance_score: Decimal
+    recency_score: Decimal
+
+    class Config:
+        from_attributes = True
+
+
+class ClaimResponse(BaseModel):
+    id: int
+    claim_text: str
+    importance: str
+    status: str
+    evidence_items: List[NewsEvidenceResponse] = []
+
+    class Config:
+        from_attributes = True
+
+
+class NewsArticleResponse(BaseModel):
+    id: int
+    source: str
+    title: str
+    url: str
+    published_at: Optional[datetime] = None
+    summary: Optional[str] = None
+    status: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class AnalysisResponse(BaseModel):
+    id: int
+    article: NewsArticleResponse
+    verdict: str
+    confidence: Decimal
+    summary: str
+    detailed_explanation: Optional[str] = None
+    quality_score: Decimal
+    conflicting_sources: bool
+    missing_citations: bool
+    published_at: Optional[datetime] = None
+    created_at: datetime
+    sources: List[NewsEvidenceResponse] = []
+
+    class Config:
+        from_attributes = True
+
+
+class AnalysisDetailResponse(BaseModel):
+    id: int
+    article: NewsArticleResponse
+    verdict: str
+    confidence: Decimal
+    summary: str
+    detailed_explanation: Optional[str] = None
+    quality_score: Decimal
+    conflicting_sources: bool
+    missing_citations: bool
+    published_at: Optional[datetime] = None
+    created_at: datetime
+
+    # Full claims with evidence
+    claims: List[ClaimResponse] = []
+    sources: List[NewsEvidenceResponse] = []
+
+    class Config:
+        from_attributes = True
+
+
 # ======================== AUTH SCHEMAS ========================
 class Token(BaseModel):
     access_token: str
