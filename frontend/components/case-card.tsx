@@ -1,10 +1,10 @@
 import Link from 'next/link'
 import { StatusBadge } from './status-badge'
 import { Users } from 'lucide-react'
-import type { Case } from '@/lib/types'
+import type { Case, CaseStatus } from '@/lib/types'
 
 export function CaseCard({ case: c }: { case: Case }) {
-  const status = c.status || 'Unverified'
+  const status = (c.status || 'draft') as CaseStatus
   const confidence = c.resolution_confidence || c.resolutionConfidence || 0
 
   return (

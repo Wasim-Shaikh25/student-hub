@@ -1,22 +1,28 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, func
-from typing import List
+from typing import Optional, List
 from datetime import datetime
 
 from config.database import get_db
-from models.models import Confirmation, Issue, ConfirmationType, AuditLog
+from config.settings import settings
+from models.models import Confirmation, Issue, ConfirmationType, AuditLog, User
 from schemas.schemas import ConfirmationCreate, ConfirmationResponse
+from app.middleware.auth_middleware import get_current_user, get_optional_user
 
 router = APIRouter(prefix="/api/v1/issues", tags=["confirmations"])
 
 
-def calculate_resolution_confidence(issue_id: int, db: Session) -> float:
-    """Calculate resolution confidence percentage.
+def _can_view(issue, user):
+    if issue.visibility != "draft":
+        return True
+    if not user:
+        return False
+    return user.id == issue.created_by_id or user.role in ["moderator", "admin"]
 
-    Formula: (confirmed_resolved / confirmed_affected) * 100%
-    Adjusted by evidence quality and official responses.
-    """
+
+def calculate_resolution_confidence(issue_id: int, db: Session) -> float:
+    """Calculate resolution confidence percentage."""
     affected_count = db.query(Confirmation).filter(
         and_(
             Confirmation.issue_id == issue_id,
@@ -35,33 +41,44 @@ def calculate_resolution_confidence(issue_id: int, db: Session) -> float:
     ).count()
 
     base_confidence = (resolved_count / affected_count) * 100
-
-    # TODO: Adjust by:
-    # - Evidence quality/verification state
-    # - Official response presence
-    # - CAG audit findings (contradictions reduce confidence)
-    # - Recency of data
-
     return min(base_confidence, 100.0)
+
+
+def _maybe_resolve_issue(issue: Issue, db: Session) -> None:
+    affected_count = db.query(Confirmation).filter(
+        and_(
+            Confirmation.issue_id == issue.id,
+            Confirmation.confirmation_type == ConfirmationType.AFFECTED
+        )
+    ).count()
+
+    resolved_count = db.query(Confirmation).filter(
+        and_(
+            Confirmation.issue_id == issue.id,
+            Confirmation.confirmation_type == ConfirmationType.RESOLVED
+        )
+    ).count()
+
+    confidence = calculate_resolution_confidence(issue.id, db)
+    issue.resolution_confidence = confidence
+
+    if (
+        affected_count >= settings.MIN_RESOLUTION_CONFIRMATIONS
+        and resolved_count >= settings.MIN_RESOLUTION_CONFIRMATIONS
+        and confidence >= settings.RESOLVED_CONFIDENCE_THRESHOLD
+    ):
+        issue.status = "resolved"
+        issue.visibility = "public"
 
 
 @router.post("/{issue_id}/confirm", response_model=ConfirmationResponse, status_code=status.HTTP_201_CREATED)
 async def add_confirmation(
     issue_id: int,
     confirmation_data: ConfirmationCreate,
-    user_id: int,  # TODO: Get from JWT token
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Add confirmation that user is affected or that issue is resolved.
-
-    Types:
-    - affected: User confirms they are affected by this problem
-    - resolved: User confirms their issue has been resolved
-    - witnessed: User witnessed the issue but not directly affected
-
-    Confirmations are idempotent - calling twice returns the same confirmation.
-    """
-    # Check issue exists
+    """Add confirmation that user is affected or that issue is resolved."""
     issue = db.query(Issue).filter(Issue.id == issue_id).first()
     if not issue:
         raise HTTPException(
@@ -69,11 +86,22 @@ async def add_confirmation(
             detail="Issue not found"
         )
 
-    # Check if confirmation already exists (idempotent)
+    if not _can_view(issue, current_user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Issue not published yet"
+        )
+
+    if current_user.is_banned:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User is banned"
+        )
+
     existing = db.query(Confirmation).filter(
         and_(
             Confirmation.issue_id == issue_id,
-            Confirmation.user_id == user_id,
+            Confirmation.user_id == current_user.id,
             Confirmation.confirmation_type == confirmation_data.confirmation_type
         )
     ).first()
@@ -81,40 +109,36 @@ async def add_confirmation(
     if existing:
         return existing
 
-    # Create new confirmation
     db_confirmation = Confirmation(
         issue_id=issue_id,
-        user_id=user_id,
+        user_id=current_user.id,
         confirmation_type=confirmation_data.confirmation_type,
         description=confirmation_data.description
     )
 
     db.add(db_confirmation)
+    db.flush()
 
-    # Recalculate resolution confidence
-    new_confidence = calculate_resolution_confidence(issue_id, db)
-    issue.resolution_confidence = new_confidence
+    _maybe_resolve_issue(issue, db)
 
-    # Create timeline event
     from models.models import ResolutionEvent
     event = ResolutionEvent(
         issue_id=issue_id,
         event_type="confirmation_added",
         event_description=f"User confirmed: {confirmation_data.confirmation_type}",
-        created_by_id=user_id
+        created_by_id=current_user.id
     )
     db.add(event)
 
-    # Create audit log
     audit_log = AuditLog(
         action="CONFIRMATION_ADDED",
         entity_type="Confirmation",
         changes={
             "issue_id": issue_id,
             "confirmation_type": confirmation_data.confirmation_type,
-            "new_confidence": float(new_confidence)
+            "new_confidence": float(issue.resolution_confidence)
         },
-        performed_by_id=user_id
+        performed_by_id=current_user.id
     )
     db.add(audit_log)
 
@@ -127,15 +151,21 @@ async def add_confirmation(
 @router.get("/{issue_id}/confirmations")
 async def get_confirmations_summary(
     issue_id: int,
+    current_user: Optional[User] = Depends(get_optional_user),
     db: Session = Depends(get_db)
 ):
-    """Get confirmation summary for an issue (aggregated, respecting privacy)."""
-    # Check issue exists
+    """Get confirmation summary for an issue."""
     issue = db.query(Issue).filter(Issue.id == issue_id).first()
     if not issue:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Issue not found"
+        )
+
+    if not _can_view(issue, current_user):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Issue not published yet"
         )
 
     affected_count = db.query(Confirmation).filter(
@@ -159,7 +189,6 @@ async def get_confirmations_summary(
         )
     ).count()
 
-    # Calculate still_affected
     still_affected = affected_count - resolved_count
 
     return {
@@ -176,14 +205,11 @@ async def get_confirmations_summary(
 @router.get("/{issue_id}/confirmations/details", response_model=List[ConfirmationResponse])
 async def get_confirmations_detailed(
     issue_id: int,
-    include_names: bool = False,  # Only for owner/moderator
+    include_names: bool = False,
+    current_user: Optional[User] = Depends(get_optional_user),
     db: Session = Depends(get_db)
 ):
-    """Get detailed confirmations (with privacy controls).
-
-    Only users who opted in have their names shown.
-    """
-    # Check issue exists
+    """Get detailed confirmations."""
     issue = db.query(Issue).filter(Issue.id == issue_id).first()
     if not issue:
         raise HTTPException(
@@ -191,7 +217,11 @@ async def get_confirmations_detailed(
             detail="Issue not found"
         )
 
-    # TODO: Check user permission (owner or moderator for personal details)
+    if not _can_view(issue, current_user):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Issue not published yet"
+        )
 
     confirmations = db.query(Confirmation)\
         .filter(Confirmation.issue_id == issue_id)\
@@ -205,13 +235,10 @@ async def get_confirmations_detailed(
 async def delete_confirmation(
     issue_id: int,
     confirmation_id: int,
-    user_id: int = None,  # TODO: Get from JWT
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Delete a confirmation (user can delete own, admin can delete any).
-
-    Recalculates resolution confidence after deletion.
-    """
+    """Delete a confirmation and recalculate resolution confidence."""
     confirmation = db.query(Confirmation).filter(
         and_(
             Confirmation.id == confirmation_id,
@@ -225,22 +252,26 @@ async def delete_confirmation(
             detail="Confirmation not found"
         )
 
-    # TODO: Check permission (user can delete own, admin can delete any)
+    if confirmation.user_id != current_user.id and current_user.role not in ["moderator", "admin"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Permission denied"
+        )
 
     db.delete(confirmation)
+    db.flush()
 
-    # Recalculate resolution confidence
     issue = db.query(Issue).filter(Issue.id == issue_id).first()
-    new_confidence = calculate_resolution_confidence(issue_id, db)
-    issue.resolution_confidence = new_confidence
+    if issue:
+        new_confidence = calculate_resolution_confidence(issue_id, db)
+        issue.resolution_confidence = new_confidence
 
-    # Create audit log
     audit_log = AuditLog(
         action="CONFIRMATION_DELETED",
         entity_type="Confirmation",
         entity_id=confirmation_id,
-        changes={"new_confidence": float(new_confidence)},
-        performed_by_id=user_id
+        changes={"new_confidence": float(issue.resolution_confidence) if issue else 0},
+        performed_by_id=current_user.id
     )
     db.add(audit_log)
 

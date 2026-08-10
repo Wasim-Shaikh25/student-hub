@@ -1,5 +1,5 @@
-from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthCredentials
+from fastapi import Depends, HTTPException, status, Request
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError
 from sqlalchemy.orm import Session
 
@@ -8,49 +8,42 @@ from config.database import get_db
 from services.auth_service import verify_token
 from models.models import User
 
-security = HTTPBearer()
+security = HTTPBearer(auto_error=False)
 
 
-async def get_current_user(
-    credentials: HTTPAuthCredentials = Depends(security),
-    db: Session = Depends(get_db)
-) -> User:
-    """Extract and validate JWT token, return current user."""
-    token = credentials.credentials
-
+def _get_user_from_token(token: str, db: Session) -> User | None:
     try:
         token_data = verify_token(token)
         if token_data is None:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid token"
-            )
+            return None
     except JWTError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Could not validate credentials"
-        )
+        return None
 
     user = db.query(User).filter(User.email == token_data.email).first()
+    if user is None or user.is_banned or not user.is_active:
+        return None
+    return user
 
+
+async def get_current_user(
+    credentials: HTTPAuthorizationCredentials | None = Depends(security),
+    db: Session = Depends(get_db)
+) -> User:
+    """Extract and validate JWT token, return current user."""
+    if not credentials:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    user = _get_user_from_token(credentials.credentials, db)
     if user is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found"
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
         )
-
-    if user.is_banned:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="User account has been banned"
-        )
-
-    if not user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="User account is inactive"
-        )
-
     return user
 
 
@@ -78,21 +71,13 @@ async def get_current_admin(
     return current_user
 
 
-# Optional auth - returns user if authenticated, None otherwise
 async def get_optional_user(
-    credentials: HTTPAuthCredentials = Depends(security) if security else None,
-    db: Session = Depends(get_db) if get_db else None
+    request: Request,
+    db: Session = Depends(get_db)
 ) -> User | None:
-    """Extract user if token provided, return None if not."""
-    if not credentials:
+    """Extract user if a Bearer token is provided, return None otherwise."""
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
         return None
-
-    try:
-        token_data = verify_token(credentials.credentials)
-        if token_data is None:
-            return None
-    except JWTError:
-        return None
-
-    user = db.query(User).filter(User.email == token_data.email).first()
-    return user if not user.is_banned and user.is_active else None
+    token = auth_header.split(" ", 1)[1]
+    return _get_user_from_token(token, db)

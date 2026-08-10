@@ -3,6 +3,8 @@ import { getSessionUser } from '@/lib/session'
 import { getCategories } from '@/lib/queries'
 import { CaseForm } from '@/components/case-form'
 
+export const dynamic = 'force-dynamic'
+
 export default async function RaisePage() {
   const user = await getSessionUser()
   if (!user) redirect('/login')

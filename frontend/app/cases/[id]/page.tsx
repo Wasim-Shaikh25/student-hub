@@ -10,9 +10,12 @@ import { getSessionUser } from '@/lib/session'
 import { StatusBadge } from '@/components/status-badge'
 import { ConfirmationButtons } from '@/components/confirmation-buttons'
 import { Users, Clock } from 'lucide-react'
+import type { Case, CaseStatus } from '@/lib/types'
+
+export const dynamic = 'force-dynamic'
 
 export default async function CaseDetailPage({ params }: { params: { id: string } }) {
-  const c = await getCaseById(params.id)
+  const c = (await getCaseById(params.id)) as Case | undefined
   if (!c) notFound()
 
   const [evidence, comments, confirmations, session] = await Promise.all([
@@ -22,11 +25,11 @@ export default async function CaseDetailPage({ params }: { params: { id: string 
     getSessionUser(),
   ])
 
-  const affectedCount = (confirmations as Record<string, unknown>[])
+  const affectedCount = (confirmations as { confirmation_type?: string }[])
     .filter((x) => x.confirmation_type === 'affected').length
-  const resolvedCount = (confirmations as Record<string, unknown>[])
+  const resolvedCount = (confirmations as { confirmation_type?: string }[])
     .filter((x) => x.confirmation_type === 'resolved').length
-  const status = c.status || 'Unverified'
+  const status = (c.status || 'draft') as CaseStatus
   const confidence = c.resolution_confidence || c.resolutionConfidence || 0
   const estimatedAffected = c.estimated_affected_people || 0
   const createdAt = c.created_at || c.createdAt || new Date().toISOString()
@@ -38,9 +41,7 @@ export default async function CaseDetailPage({ params }: { params: { id: string 
           <div>
             <StatusBadge status={status} />
             <h1 className="mt-3 text-2xl font-bold leading-tight md:text-3xl">{c.title}</h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {c.category}
-            </p>
+            <p className="mt-1 text-sm text-muted-foreground">{c.category}</p>
           </div>
           <div className="text-right">
             <div className="text-3xl font-bold text-primary">{confidence}%</div>
@@ -63,7 +64,7 @@ export default async function CaseDetailPage({ params }: { params: { id: string 
           </span>
           <span className="flex items-center gap-1.5">
             <Users className="size-4 text-muted-foreground" />
-            {(evidence as Record<string, unknown>[]).length} evidence files
+            {(evidence as { id?: string | number }[]).length} evidence files
           </span>
           <span className="flex items-center gap-1.5">
             <Clock className="size-4 text-muted-foreground" />
@@ -90,19 +91,19 @@ export default async function CaseDetailPage({ params }: { params: { id: string 
 
           <section>
             <h2 className="text-lg font-semibold">Evidence</h2>
-            {(evidence as Record<string, unknown>[]).length === 0 ? (
+            {(evidence as { id?: string | number }[]).length === 0 ? (
               <p className="mt-2 text-sm text-muted-foreground">No evidence uploaded.</p>
             ) : (
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
                 {(evidence as Record<string, unknown>[]).map((ev) => {
-                  const fileUrl = ev.url ? String(ev.url) : null
+                  const fileUrl = ev.file_url ? String(ev.file_url) : null
                   return (
                     <div key={String(ev.id)} className="rounded-xl border p-3">
                       <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium">{String(ev.title || ev.filename)}</span>
-                        <span className="text-xs text-muted-foreground">{String(ev.status)}</span>
+                        <span className="text-sm font-medium">{String(ev.title || ev.original_filename || 'Evidence')}</span>
+                        <span className="text-xs text-muted-foreground">{String(ev.status || 'submitted')}</span>
                       </div>
-                      <p className="mt-1 text-xs text-muted-foreground">{String(ev.evidence_type)}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">{String(ev.evidence_type || 'photo')}</p>
                       {fileUrl && (
                         <a href={fileUrl} target="_blank" rel="noreferrer" className="mt-2 inline-block text-sm text-primary hover:underline">
                           View file
@@ -119,20 +120,23 @@ export default async function CaseDetailPage({ params }: { params: { id: string 
             <h2 className="text-lg font-semibold">Discussion</h2>
             {session ? (
               <div className="mt-4 space-y-3">
-                {(comments as Record<string, unknown>[]).length === 0 ? (
+                {(comments as { id?: string | number }[]).length === 0 ? (
                   <p className="text-sm text-muted-foreground">No comments yet. Be the first to comment.</p>
                 ) : (
-                  (comments as Record<string, unknown>[]).map((comment) => (
-                    <div key={String(comment.id)} className="rounded-xl border p-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-semibold">{String(comment.user_display_name || 'User')}</span>
-                        <span className="text-xs text-muted-foreground">
-                          {format(new Date(String(comment.created_at || '')), 'MMM d, yyyy')}
-                        </span>
+                  (comments as Record<string, unknown>[]).map((comment) => {
+                    const user = (comment.user as Record<string, unknown>) || {}
+                    return (
+                      <div key={String(comment.id)} className="rounded-xl border p-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-semibold">{String(user.display_name || 'User')}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {format(new Date(String(comment.created_at || '')), 'MMM d, yyyy')}
+                          </span>
+                        </div>
+                        <p className="mt-1 text-sm">{String(comment.text)}</p>
                       </div>
-                      <p className="mt-1 text-sm">{String(comment.text)}</p>
-                    </div>
-                  ))
+                    )
+                  })
                 )}
               </div>
             ) : (
@@ -179,7 +183,7 @@ export default async function CaseDetailPage({ params }: { params: { id: string 
               </li>
               <li className="flex gap-2">
                 <Users className="size-4 text-muted-foreground" />
-                <span>{(evidence as Record<string, unknown>[]).length} evidence files</span>
+                <span>{(evidence as { id?: string | number }[]).length} evidence files</span>
               </li>
             </ul>
           </div>

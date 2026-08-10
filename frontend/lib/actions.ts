@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { getSessionUser, setSessionUser, clearSessionUser } from './session'
+import type { UserRole } from './types'
 
 // Server-side API client that doesn't require browser localStorage
 interface ApiResponse {
@@ -43,16 +44,31 @@ class ServerApiClient {
     return response.json() as Promise<ApiResponse>
   }
 
-  async register(email: string, displayName: string, password: string): Promise<ApiResponse> {
-    return this.request('POST', '/auth/register', { email, display_name: displayName, password })
+  async register(email: string, displayName: string, password: string, phone?: string): Promise<ApiResponse> {
+    const payload: Record<string, unknown> = { email, display_name: displayName, password }
+    if (phone) payload.phone = phone
+    return this.request('POST', '/auth/register', payload)
   }
 
   async login(email: string, password: string): Promise<ApiResponse> {
     return this.request('POST', '/auth/login', { email, password })
   }
 
-  async createIssue(data: ApiResponse, token: string): Promise<ApiResponse> {
-    return this.request('POST', '/issues', data, token)
+  async createIssue(formData: FormData, token: string): Promise<ApiResponse> {
+    const response = await fetch(`${this.baseURL}/issues`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+      body: formData,
+    })
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({})) as ApiError
+      throw new Error(error.detail || `Failed to create issue: ${response.statusText}`)
+    }
+
+    return response.json() as Promise<ApiResponse>
   }
 
   async listIssues(filters?: ApiResponse, token?: string): Promise<ApiResponse> {
@@ -93,6 +109,20 @@ class ServerApiClient {
   async addComment(issueId: number, text: string, token: string): Promise<ApiResponse> {
     return this.request('POST', `/issues/${issueId}/comments`, { text }, token)
   }
+
+  async getModerationQueue(queueType: string = 'issues', token?: string): Promise<ApiResponse> {
+    return this.request('GET', `/admin/moderation-queue?queue_type=${encodeURIComponent(queueType)}`, undefined, token)
+  }
+
+  async moderateIssue(
+    issueId: number,
+    status: string,
+    visibility: string,
+    moderationNotes: string,
+    token: string
+  ): Promise<ApiResponse> {
+    return this.request('PUT', `/admin/issues/${issueId}/moderate`, { status, visibility, moderation_notes: moderationNotes }, token)
+  }
 }
 
 const serverApi = new ServerApiClient()
@@ -102,25 +132,27 @@ export async function register(formData: FormData) {
     const email = String(formData.get('email') || '')
     const name = String(formData.get('name') || '')
     const password = String(formData.get('password') || '')
+    const phone = String(formData.get('phone') || '')
 
     if (!email || !name || !password) {
       return { error: 'Email, name and password are required' }
     }
 
-    const result = await serverApi.register(email, name, password)
+    const result = await serverApi.register(email, name, password, phone)
+    const user = (result.user as Record<string, unknown>) || result
 
-    const userId = String(result.id)
-    const userRole = String(result.role) as 'Student' | 'Expert' | 'NGO' | 'Lawyer' | 'SuperAdmin'
+    const userId = String(user.id)
+    const userRole = String(user.role) as UserRole
 
     await setSessionUser({
       id: userId,
-      email: String(result.email),
-      name: String(result.display_name),
+      email: String(user.email),
+      name: String(user.display_name),
       role: userRole,
       accessToken: String(result.access_token),
     })
 
-    return { success: true, userId }
+    return { success: true, userId, role: userRole }
   } catch (err: unknown) {
     const error = err instanceof Error ? err : new Error('Registration failed')
     return { error: error.message }
@@ -137,19 +169,20 @@ export async function login(formData: FormData) {
     }
 
     const result = await serverApi.login(email, password)
+    const user = (result.user as Record<string, unknown>) || result
 
-    const userId = String(result.id)
-    const userRole = String(result.role) as 'Student' | 'Expert' | 'NGO' | 'Lawyer' | 'SuperAdmin'
+    const userId = String(user.id)
+    const userRole = String(user.role) as UserRole
 
     await setSessionUser({
       id: userId,
-      email: String(result.email),
-      name: String(result.display_name),
+      email: String(user.email),
+      name: String(user.display_name),
       role: userRole,
       accessToken: String(result.access_token),
     })
 
-    return { success: true, userId }
+    return { success: true, userId, role: userRole }
   } catch (err: unknown) {
     const error = err instanceof Error ? err : new Error('Login failed')
     return { error: error.message }
@@ -175,38 +208,27 @@ export async function createCase(formData: FormData) {
     const category = String(formData.get('category') || '')
     const stateId = Number(formData.get('state_id') || 0)
     const estimatedAffectedPeople = Number(formData.get('estimated_affected_people') || 0)
+    const evidenceFiles = formData.getAll('evidence').filter((f): f is File => f instanceof File)
 
     if (!title || !description || !category || !stateId) {
       return { error: 'Title, description, category and state are required' }
     }
 
-    // Create the issue first
-    const issueData = {
-      title,
-      description,
-      category,
-      state_id: stateId,
-      estimated_affected_people: estimatedAffectedPeople,
+    if (evidenceFiles.length === 0) {
+      return { error: 'At least one evidence file is required' }
     }
 
-    const issueResult = await serverApi.createIssue(issueData, session.accessToken)
-
-    // Handle evidence files if provided
-    const evidenceFiles = formData.getAll('evidence').filter((f): f is File => f instanceof File)
-    if (evidenceFiles.length > 0) {
-      for (const file of evidenceFiles) {
-        const evidenceFormData = new FormData()
-        evidenceFormData.append('file', file)
-        evidenceFormData.append('evidence_type', 'photo')
-        evidenceFormData.append('title', file.name)
-
-        try {
-          await serverApi.uploadEvidence(Number(issueResult.id), evidenceFormData, session.accessToken)
-        } catch (error) {
-          console.error('Failed to upload evidence:', error)
-        }
-      }
+    const payload = new FormData()
+    payload.append('title', title)
+    payload.append('description', description)
+    payload.append('category', category)
+    payload.append('state_id', String(stateId))
+    payload.append('estimated_affected_people', String(estimatedAffectedPeople))
+    for (const file of evidenceFiles) {
+      payload.append('files', file)
     }
+
+    const issueResult = await serverApi.createIssue(payload, session.accessToken)
 
     revalidatePath('/')
     return { success: true, caseId: issueResult.id }
@@ -243,6 +265,34 @@ export async function addComment(caseId: string, formData: FormData) {
   } catch (err: unknown) {
     const error = err instanceof Error ? err.message : 'Failed to add comment'
     console.error('Failed to add comment:', error)
+  }
+}
+
+export async function getModerationQueue(queueType: string = 'issues') {
+  try {
+    const session = await getSessionUser()
+    if (!session?.accessToken) return { error: 'Unauthorized' }
+
+    const result = await serverApi.getModerationQueue(queueType, session.accessToken)
+    return { success: true, data: result }
+  } catch (err: unknown) {
+    const error = err instanceof Error ? err : new Error('Failed to fetch moderation queue')
+    return { error: error.message }
+  }
+}
+
+export async function moderateCase(issueId: number, status: string, visibility: string, moderationNotes: string) {
+  try {
+    const session = await getSessionUser()
+    if (!session?.accessToken) return { error: 'Unauthorized' }
+
+    await serverApi.moderateIssue(issueId, status, visibility, moderationNotes, session.accessToken)
+    revalidatePath('/admin')
+    revalidatePath(`/cases/${issueId}`)
+    return { success: true }
+  } catch (err: unknown) {
+    const error = err instanceof Error ? err : new Error('Moderation failed')
+    return { error: error.message }
   }
 }
 

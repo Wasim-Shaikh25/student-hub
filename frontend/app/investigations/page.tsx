@@ -2,8 +2,20 @@ import { Suspense } from 'react'
 import { getInvestigations } from '@/lib/queries'
 import { InvestigationCard } from '@/components/investigation-card'
 
+export const dynamic = 'force-dynamic'
+
+interface ApiResponse {
+  id?: number
+  article?: { title?: string }
+  verdict?: 'supported' | 'misleading' | 'contradicted' | 'unverified'
+  summary?: string
+  confidence?: number
+  sources?: unknown[]
+  published_at?: string
+}
+
 async function InvestigationsList() {
-  const investigations = await getInvestigations()
+  const investigations = (await getInvestigations()) as ApiResponse[]
 
   if (!investigations || investigations.length === 0) {
     return (
@@ -15,16 +27,16 @@ async function InvestigationsList() {
 
   return (
     <div className="grid gap-4 md:grid-cols-2">
-      {investigations.map((inv: any) => (
+      {investigations.map((inv) => (
         <InvestigationCard
           key={inv.id}
-          id={inv.id}
+          id={inv.id ?? 0}
           headline={inv.article?.title || 'Untitled'}
-          verdict={inv.verdict}
-          summary={inv.summary}
-          confidence={inv.confidence}
-          sourceCount={inv.sources?.length || 0}
-          publishedAt={new Date(inv.published_at)}
+          verdict={inv.verdict ?? 'unverified'}
+          summary={inv.summary ?? ''}
+          confidence={inv.confidence ?? 0}
+          sourceCount={Array.isArray(inv.sources) ? inv.sources.length : 0}
+          publishedAt={new Date(inv.published_at ?? Date.now())}
         />
       ))}
     </div>

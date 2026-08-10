@@ -3,8 +3,51 @@ import { getInvestigationById } from '@/lib/queries'
 import { formatDate } from '@/lib/utils'
 import { ExternalLink } from 'lucide-react'
 
+export const dynamic = 'force-dynamic'
+
 interface InvestigationPageProps {
   params: { id: string }
+}
+
+interface Article {
+  title?: string
+  summary?: string
+  source?: string
+  url?: string
+  published_at?: string
+}
+
+interface EvidenceItem {
+  id?: number
+  title?: string
+  url?: string
+  source_type?: string
+  relation?: string
+  excerpt?: string
+  published_at?: string
+  source_authority_score?: number
+  relevance_score?: number
+  recency_score?: number
+}
+
+interface Claim {
+  id?: number
+  claim_text?: string
+  evidence_items?: EvidenceItem[]
+}
+
+interface Investigation {
+  article?: Article
+  verdict?: 'supported' | 'misleading' | 'contradicted' | 'unverified'
+  confidence?: number
+  quality_score?: number
+  summary?: string
+  detailed_explanation?: string
+  conflicting_sources?: boolean
+  missing_citations?: boolean
+  claims?: Claim[]
+  sources?: EvidenceItem[]
+  published_at?: string
 }
 
 const verdictColors = {
@@ -28,8 +71,8 @@ export default async function InvestigationDetailPage({ params }: InvestigationP
     notFound()
   }
 
-  const inv = investigation as any
-  const verdict = inv.verdict as keyof typeof verdictColors
+  const inv = investigation as unknown as Investigation
+  const verdict = (inv.verdict ?? 'unverified') as keyof typeof verdictColors
   const claims = inv.claims || []
   const sources = inv.sources || []
 
@@ -47,9 +90,9 @@ export default async function InvestigationDetailPage({ params }: InvestigationP
               <div className="flex items-center gap-2">
                 <span className="text-sm font-semibold text-muted-foreground">Confidence:</span>
                 <div className="w-48 rounded-full bg-muted">
-                  <div className="h-2 rounded-full bg-primary" style={{ width: `${Math.round(inv.confidence * 100)}%` }} />
+                  <div className="h-2 rounded-full bg-primary" style={{ width: `${Math.round((inv.confidence ?? 0) * 100)}%` }} />
                 </div>
-                <span className="text-sm font-semibold">{Math.round(inv.confidence * 100)}%</span>
+                <span className="text-sm font-semibold">{Math.round((inv.confidence ?? 0) * 100)}%</span>
               </div>
             </div>
           </div>
@@ -57,7 +100,7 @@ export default async function InvestigationDetailPage({ params }: InvestigationP
 
         <div className="border-b pb-4">
           <div className="text-sm text-muted-foreground">
-            {inv.article?.source} • {formatDate(new Date(inv.published_at))}
+            {inv.article?.source} {inv.article?.source && inv.published_at && '•'} {formatDate(inv.published_at)}
           </div>
           {inv.article?.summary && (
             <p className="mt-2 text-base text-muted-foreground">{inv.article.summary}</p>
@@ -84,18 +127,18 @@ export default async function InvestigationDetailPage({ params }: InvestigationP
           <div className="flex items-center justify-between">
             <span className="text-sm">Quality Score</span>
             <div className="w-32 rounded-full bg-muted">
-              <div className="h-2 rounded-full bg-primary" style={{ width: `${Math.round(inv.quality_score * 100)}%` }} />
+              <div className="h-2 rounded-full bg-primary" style={{ width: `${Math.round((inv.quality_score ?? 0) * 100)}%` }} />
             </div>
-            <span className="text-sm font-semibold">{Math.round(inv.quality_score * 100)}%</span>
+            <span className="text-sm font-semibold">{Math.round((inv.quality_score ?? 0) * 100)}%</span>
           </div>
           {inv.conflicting_sources && (
             <div className="rounded bg-yellow-50 p-2 text-sm text-yellow-800">
-              ⚠ Conflicting sources found - review evidence carefully
+              Conflicting sources found - review evidence carefully
             </div>
           )}
           {inv.missing_citations && (
             <div className="rounded bg-yellow-50 p-2 text-sm text-yellow-800">
-              ⚠ Some claims lack direct citations - see evidence section
+              Some claims lack direct citations - see evidence section
             </div>
           )}
         </div>
@@ -106,13 +149,13 @@ export default async function InvestigationDetailPage({ params }: InvestigationP
         <div className="mb-8">
           <h2 className="mb-4 text-xl font-semibold">Key Claims</h2>
           <div className="space-y-4">
-            {claims.map((claim: any) => (
+            {claims.map((claim) => (
               <div key={claim.id} className="rounded-lg border bg-card p-4">
                 <h3 className="mb-3 font-semibold">{claim.claim_text}</h3>
                 {claim.evidence_items && claim.evidence_items.length > 0 && (
                   <div className="space-y-2">
                     <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Evidence</p>
-                    {claim.evidence_items.map((evidence: any) => (
+                    {claim.evidence_items.map((evidence) => (
                       <div key={evidence.id} className="rounded bg-muted/30 p-2 text-xs">
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex-1">
@@ -131,7 +174,7 @@ export default async function InvestigationDetailPage({ params }: InvestigationP
                             {evidence.relation}
                           </span>
                         </div>
-                        {evidence.excerpt && <p className="mt-2 italic text-muted-foreground">"{evidence.excerpt}"</p>}
+                        {evidence.excerpt && <p className="mt-2 italic text-muted-foreground">&ldquo;{evidence.excerpt}&rdquo;</p>}
                       </div>
                     ))}
                   </div>
@@ -147,7 +190,7 @@ export default async function InvestigationDetailPage({ params }: InvestigationP
         <div className="mb-8">
           <h2 className="mb-4 text-xl font-semibold">All Sources ({sources.length})</h2>
           <div className="space-y-3">
-            {sources.map((source: any) => (
+            {sources.map((source) => (
               <div key={source.id} className="rounded-lg border bg-card p-4">
                 <a
                   href={source.url}
@@ -164,17 +207,17 @@ export default async function InvestigationDetailPage({ params }: InvestigationP
                   <span className="rounded bg-muted px-2 py-1 text-xs font-medium capitalize">{source.relation}</span>
                   {source.published_at && (
                     <span className="rounded bg-muted px-2 py-1 text-xs text-muted-foreground">
-                      {formatDate(new Date(source.published_at))}
+                      {formatDate(source.published_at)}
                     </span>
                   )}
                 </div>
 
                 <div className="mb-2 text-xs text-muted-foreground">
-                  Authority: {Math.round(source.source_authority_score * 100)}% • Relevance: {Math.round(source.relevance_score * 100)}% •
-                  Recency: {Math.round(source.recency_score * 100)}%
+                  Authority: {Math.round((source.source_authority_score ?? 0) * 100)}% • Relevance: {Math.round((source.relevance_score ?? 0) * 100)}% •
+                  Recency: {Math.round((source.recency_score ?? 0) * 100)}%
                 </div>
 
-                {source.excerpt && <p className="text-sm italic text-muted-foreground">"{source.excerpt}"</p>}
+                {source.excerpt && <p className="text-sm italic text-muted-foreground">&ldquo;{source.excerpt}&rdquo;</p>}
               </div>
             ))}
           </div>
@@ -201,7 +244,7 @@ export default async function InvestigationDetailPage({ params }: InvestigationP
               </a>
             )}
             {inv.article.published_at && (
-              <p className="text-sm text-muted-foreground">Published: {formatDate(new Date(inv.article.published_at))}</p>
+              <p className="text-sm text-muted-foreground">Published: {formatDate(inv.article.published_at)}</p>
             )}
           </div>
         </div>

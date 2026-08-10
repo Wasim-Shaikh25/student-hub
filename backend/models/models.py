@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, DateTime, Boolean, ForeignKey, Float, BigInteger, JSONB, Enum, UniqueConstraint, Index, func, Numeric
+from sqlalchemy import Column, Integer, String, Text, DateTime, Boolean, ForeignKey, Float, BigInteger, JSON, Enum, UniqueConstraint, Index, func, Numeric
 from sqlalchemy.orm import relationship
 from geoalchemy2 import Geometry
 from datetime import datetime
@@ -82,7 +82,7 @@ class User(Base):
 
     # Relationships
     issues = relationship("Issue", back_populates="created_by", foreign_keys="Issue.created_by_id")
-    evidence = relationship("CivicEvidence", back_populates="uploaded_by")
+    evidence = relationship("CivicEvidence", back_populates="uploaded_by", foreign_keys="CivicEvidence.uploaded_by_id")
     confirmations = relationship("Confirmation", back_populates="user")
     state = relationship("GeographyHierarchy", foreign_keys=[state_id])
 
@@ -106,8 +106,8 @@ class GeographyHierarchy(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     # Relationships
-    children = relationship("GeographyHierarchy", remote_side=[parent_id])
-    parent = relationship("GeographyHierarchy", remote_side=[parent_id], foreign_keys=[parent_id])
+    children = relationship("GeographyHierarchy", remote_side=[id], foreign_keys=[parent_id], back_populates="parent")
+    parent = relationship("GeographyHierarchy", remote_side=[parent_id], foreign_keys=[parent_id], back_populates="children")
 
     __table_args__ = (
         UniqueConstraint("level", "official_code", name="uq_level_code"),
@@ -222,7 +222,7 @@ class SpendingEvidence(Base):
 
     scheme_id = Column(String(255), nullable=True, index=True)
     scheme_name = Column(String(500), nullable=True)
-    scheme_aliases = Column(JSONB, nullable=True)  # Array of alternative names
+    scheme_aliases = Column(JSON, nullable=True)  # Array of alternative names
 
     financial_year = Column(String(10), nullable=False)  # "2024-25"
 
@@ -488,7 +488,7 @@ class AuditLog(Base):
     entity_type = Column(String(50), nullable=False)
     entity_id = Column(Integer, nullable=True)
 
-    changes = Column(JSONB, nullable=True)
+    changes = Column(JSON, nullable=True)
 
     performed_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     performed_at = Column(DateTime, default=datetime.utcnow, index=True)

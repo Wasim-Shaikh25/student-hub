@@ -8,11 +8,39 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)) + "/..")
 
 from config.settings import settings
-from config.database import engine, Base
-from models.models import User
+from config.database import engine, Base, SessionLocal
+from services.auth_service import create_admin_user
+from models.models import GeographyHierarchy
 
 # Create tables
 Base.metadata.create_all(bind=engine)
+
+
+def seed_geography():
+    db = SessionLocal()
+    try:
+        states = [
+            (1, "Maharashtra", "state"),
+            (2, "Tamil Nadu", "state"),
+            (3, "Karnataka", "state"),
+            (4, "Uttar Pradesh", "state"),
+            (5, "Bihar", "state"),
+            (6, "Rajasthan", "state"),
+            (7, "Madhya Pradesh", "state"),
+            (8, "Gujarat", "state"),
+            (9, "West Bengal", "state"),
+            (10, "Punjab", "state"),
+        ]
+        for state_id, name, level in states:
+            existing = db.query(GeographyHierarchy).filter(GeographyHierarchy.id == state_id).first()
+            if not existing:
+                db.add(GeographyHierarchy(id=state_id, name=name, level=level))
+        db.commit()
+    finally:
+        db.close()
+
+
+seed_geography()
 
 app = FastAPI(
     title=settings.APP_NAME,
@@ -23,10 +51,21 @@ app = FastAPI(
     openapi_url="/openapi.json"
 )
 
+
+@app.on_event("startup")
+def seed_super_admin():
+    """Create the environment-defined super admin on startup."""
+    db = SessionLocal()
+    try:
+        create_admin_user(db)
+    finally:
+        db.close()
+
+
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.ALLOWED_ORIGINS,
+    allow_origins=[origin.strip() for origin in settings.ALLOWED_ORIGINS.split(",") if origin.strip()],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

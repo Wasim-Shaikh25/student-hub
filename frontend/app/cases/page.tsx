@@ -3,6 +3,8 @@ import { getSessionUser } from '@/lib/session'
 import { getMyCases } from '@/lib/queries'
 import { CaseCard } from '@/components/case-card'
 
+export const dynamic = 'force-dynamic'
+
 export default async function MyCasesPage() {
   const user = await getSessionUser()
   if (!user) redirect('/login')

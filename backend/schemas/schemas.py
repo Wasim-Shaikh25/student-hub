@@ -1,6 +1,6 @@
 from pydantic import BaseModel, EmailStr, Field
 from datetime import datetime
-from typing import Optional, List
+from typing import Optional, List, Literal
 from decimal import Decimal
 
 
@@ -13,6 +13,11 @@ class UserCreate(BaseModel):
 
 
 class UserLogin(BaseModel):
+    email: EmailStr
+    password: str
+
+
+class AdminLogin(BaseModel):
     email: EmailStr
     password: str
 
@@ -62,6 +67,7 @@ class EvidenceResponse(BaseModel):
     evidence_type: str
     title: Optional[str] = None
     description: Optional[str] = None
+    file_url: Optional[str] = None
     verification_state: str
     created_at: datetime
     uploaded_by: UserResponse
@@ -161,7 +167,18 @@ class IssueUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
     category: Optional[str] = None
-    status: Optional[str] = None
+    status: Optional[Literal[
+        "draft",
+        "evidence_review",
+        "confirmed_problem",
+        "investigating",
+        "awaiting_response",
+        "partially_resolved",
+        "mostly_resolved",
+        "resolved",
+        "reopened",
+    ]] = None
+    visibility: Optional[Literal["public", "draft", "hidden"]] = None
     estimated_affected_people: Optional[int] = None
 
 
@@ -244,9 +261,19 @@ class SpendingContext(BaseModel):
 
 # ======================== ADMIN SCHEMAS ========================
 class AdminIssueModeration(BaseModel):
-    status: str
+    status: Literal[
+        "draft",
+        "evidence_review",
+        "confirmed_problem",
+        "investigating",
+        "awaiting_response",
+        "partially_resolved",
+        "mostly_resolved",
+        "resolved",
+        "reopened",
+    ]
     moderation_notes: Optional[str] = None
-    visibility: str
+    visibility: Literal["public", "draft", "hidden"]
 
 
 class AdminEvidenceReview(BaseModel):
@@ -351,6 +378,10 @@ class AnalysisDetailResponse(BaseModel):
 class Token(BaseModel):
     access_token: str
     token_type: str
+    user: UserResponse
+
+    class Config:
+        from_attributes = True
 
 
 class TokenData(BaseModel):

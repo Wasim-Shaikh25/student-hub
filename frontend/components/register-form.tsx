@@ -49,6 +49,10 @@ export function RegisterForm({
           <input name="password" type="password" required minLength={6} className="mt-1 w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary" />
         </div>
         <div>
+          <label className="block text-sm font-medium">Mobile (optional)</label>
+          <input name="phone" type="tel" className="mt-1 w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary" />
+        </div>
+        <div>
           <label className="block text-sm font-medium">Institution</label>
           <select name="institution" className="mt-1 w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary">
             <option value="">Select...</option>

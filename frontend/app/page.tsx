@@ -4,10 +4,11 @@ import { getCases } from '@/lib/queries'
 import { getSessionUser } from '@/lib/session'
 import { CaseCard } from '@/components/case-card'
 
+export const dynamic = 'force-dynamic'
 
 export default async function HomePage() {
   const user = await getSessionUser()
-  const cases = await getCases({ status: 'Resolved' })
+  const cases = await getCases({ status: 'resolved' })
 
   const recent = (await getCases()).slice(0, 6)
 
@@ -72,7 +73,7 @@ export default async function HomePage() {
       <section className="mb-12">
         <div className="mb-6 flex items-center justify-between">
           <h2 className="text-xl font-semibold">Recently resolved</h2>
-          <Link href="/discover?status=Resolved" className="text-sm font-medium text-primary hover:underline">
+          <Link href="/discover?status=resolved" className="text-sm font-medium text-primary hover:underline">
             View all
           </Link>
         </div>

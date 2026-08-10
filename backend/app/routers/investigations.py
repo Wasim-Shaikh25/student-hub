@@ -1,17 +1,18 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
-from typing import List
+from typing import Optional
 
 from config.database import get_db
-from models.models import Analysis, NewsArticle, Claim
+from models.models import Analysis, NewsArticle
 from schemas.schemas import AnalysisResponse, AnalysisDetailResponse
+from app.middleware.auth_middleware import get_optional_user
 
 router = APIRouter(prefix="/api/v1/investigations", tags=["investigations"])
 
 
-@router.get("", response_model=List[AnalysisResponse])
+@router.get("")
 async def list_analyses(
-    verdict: str = Query(None),
+    verdict: Optional[str] = Query(None),
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db)
@@ -22,14 +23,18 @@ async def list_analyses(
     if verdict:
         query = query.filter(Analysis.verdict == verdict)
 
-    # Pagination
     total = query.count()
     analyses = query.order_by(Analysis.published_at.desc())\
         .offset((page - 1) * per_page)\
         .limit(per_page)\
         .all()
 
-    return analyses
+    return {
+        "items": analyses,
+        "total": total,
+        "page": page,
+        "per_page": per_page
+    }
 
 
 @router.get("/{analysis_id}", response_model=AnalysisDetailResponse)
