@@ -52,9 +52,32 @@ class ServerApiClient {
   async listComments(issueId: number, token?: string) {
     return this.request('GET', `/issues/${issueId}/comments`, token)
   }
+
+  async getConfirmations(issueId: number, token?: string) {
+    return this.request('GET', `/issues/${issueId}/confirmations`, token)
+  }
 }
 
 const serverApi = new ServerApiClient()
+
+export async function getCategories() {
+  return [
+    'Health & Sanitation',
+    'Education',
+    'Infrastructure',
+    'Water & Electricity',
+    'Government Services',
+    'Other'
+  ]
+}
+
+export async function getInstitutions() {
+  return []
+}
+
+export async function getLocations() {
+  return []
+}
 
 export async function getCases(filters?: { status?: string; category?: string }): Promise<Case[]> {
   try {
@@ -93,9 +116,52 @@ export async function getCaseComments(caseId: string) {
   try {
     const session = await getSessionUser()
     const result = await serverApi.listComments(Number(caseId), session?.accessToken)
-    return result.items || []
+    return (result.items || []).map((c: any) => ({
+      ...c,
+      user: { id: c.user_id, name: c.user_display_name, email: '' }
+    }))
   } catch (error) {
     console.error('Failed to fetch comments:', error)
     return []
+  }
+}
+
+export async function getCaseConfirmations(caseId: string) {
+  try {
+    const session = await getSessionUser()
+    const result = await serverApi.getConfirmations(Number(caseId), session?.accessToken)
+    return result.items || []
+  } catch (error) {
+    console.error('Failed to fetch confirmations:', error)
+    return []
+  }
+}
+
+export async function getUserById(id: string) {
+  try {
+    return { id, name: 'User', email: '' }
+  } catch (error) {
+    return undefined
+  }
+}
+
+export async function isFollowing(caseId: string) {
+  // TODO: Implement following logic when API endpoint is available
+  return false
+}
+
+export async function getMyCases() {
+  // TODO: Implement fetching user's cases from API
+  return { created: [], joined: [], following: [] }
+}
+
+export async function getModerationQueue() {
+  // TODO: Implement fetching moderation queue from API
+  return {
+    cases: [],
+    evidence: [],
+    users: [],
+    reports: [],
+    expertProfiles: [],
   }
 }

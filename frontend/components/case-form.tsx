@@ -4,6 +4,20 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createCase } from '@/lib/actions'
 
+// Hardcoded states for now - should be fetched from backend
+const STATES = [
+  { id: 1, name: 'Maharashtra' },
+  { id: 2, name: 'Tamil Nadu' },
+  { id: 3, name: 'Karnataka' },
+  { id: 4, name: 'Uttar Pradesh' },
+  { id: 5, name: 'Bihar' },
+  { id: 6, name: 'Rajasthan' },
+  { id: 7, name: 'Madhya Pradesh' },
+  { id: 8, name: 'Gujarat' },
+  { id: 9, name: 'West Bengal' },
+  { id: 10, name: 'Punjab' },
+]
+
 export function CaseForm({
   categories,
   institutions,
@@ -23,6 +37,12 @@ export function CaseForm({
     setLoading(true)
     setError(null)
     const formData = new FormData(e.currentTarget)
+
+    // Add state_id if not present
+    if (!formData.has('state_id')) {
+      formData.set('state_id', '1') // Default to first state
+    }
+
     const result = await createCase(formData)
     setLoading(false)
     if (result?.error) {
@@ -45,18 +65,7 @@ export function CaseForm({
         <textarea name="description" required rows={5} className="mt-1 w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary" placeholder="Describe the issue clearly..." />
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        <div>
-          <label className="block text-sm font-medium">Institution</label>
-          <select name="institution" required className="mt-1 w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary">
-            <option value="">Select...</option>
-            {institutions.map((i) => (
-              <option key={i} value={i}>
-                {i}
-              </option>
-            ))}
-          </select>
-        </div>
+      <div className="grid gap-4 sm:grid-cols-2">
         <div>
           <label className="block text-sm font-medium">Category</label>
           <select name="category" required className="mt-1 w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary">
@@ -69,12 +78,12 @@ export function CaseForm({
           </select>
         </div>
         <div>
-          <label className="block text-sm font-medium">Location</label>
-          <select name="location" className="mt-1 w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary">
+          <label className="block text-sm font-medium">State</label>
+          <select name="state_id" required className="mt-1 w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary">
             <option value="">Select...</option>
-            {locations.map((l) => (
-              <option key={l} value={l}>
-                {l}
+            {STATES.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
               </option>
             ))}
           </select>
@@ -83,7 +92,7 @@ export function CaseForm({
 
       <div>
         <label className="block text-sm font-medium">Estimated number affected</label>
-        <input name="affectedCount" type="number" min={1} defaultValue={1} className="mt-1 w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary" />
+        <input name="estimated_affected_people" type="number" min={1} defaultValue={1} className="mt-1 w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary" />
       </div>
 
       <div className="rounded-xl border border-dashed p-6">
