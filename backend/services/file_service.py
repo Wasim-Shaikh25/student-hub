@@ -26,14 +26,14 @@ async def save_evidence_file(file: UploadFile, issue_id: int) -> dict:
     os.makedirs(storage_dir, exist_ok=True)
 
     relative_path = f"{relative_dir}/{file_hash}{file_extension}"
-    file_path = os.path.join(STORAGE_DIR, relative_path)
+    absolute_path = os.path.join(STORAGE_DIR, relative_path)
 
-    if not os.path.exists(file_path):
-        with open(file_path, "wb") as f:
+    if not os.path.exists(absolute_path):
+        with open(absolute_path, "wb") as f:
             f.write(file_data)
 
     return {
-        "file_path": relative_path,
+        "file_path": f"/uploads/{relative_path}",
         "file_hash": file_hash,
         "file_size": file_size,
         "original_filename": file.filename,

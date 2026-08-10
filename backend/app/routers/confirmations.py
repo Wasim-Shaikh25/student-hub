@@ -14,7 +14,7 @@ router = APIRouter(prefix="/api/v1/issues", tags=["confirmations"])
 
 
 def _can_view(issue, user):
-    if issue.visibility != "draft":
+    if issue.visibility == "public":
         return True
     if not user:
         return False
@@ -68,7 +68,6 @@ def _maybe_resolve_issue(issue: Issue, db: Session) -> None:
         and confidence >= settings.RESOLVED_CONFIDENCE_THRESHOLD
     ):
         issue.status = "resolved"
-        issue.visibility = "public"
 
 
 @router.post("/{issue_id}/confirm", response_model=ConfirmationResponse, status_code=status.HTTP_201_CREATED)

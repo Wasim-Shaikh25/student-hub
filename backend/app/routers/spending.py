@@ -11,25 +11,16 @@ from schemas.schemas import SpendingEvidenceResponse, SpendingContext
 router = APIRouter(prefix="/api/v1/spending", tags=["spending"])
 
 
-@router.get("/schemes", response_model=List[SpendingEvidenceResponse])
+@router.get("/schemes")
 async def list_schemes(
     state_id: Optional[int] = None,
-    category: Optional[str] = None,
     financial_year: Optional[str] = None,
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db)
 ):
-    """List government schemes with spending data.
-
-    Supports filtering by:
-    - State
-    - Category (education, health, infrastructure, water, etc.)
-    - Financial year (e.g., '2024-25')
-    """
-    query = db.query(SpendingEvidence)\
-        .filter(SpendingEvidence.source_type == "budget")\
-        .distinct(SpendingEvidence.scheme_id)
+    """List government schemes with spending data."""
+    query = db.query(SpendingEvidence).filter(SpendingEvidence.source_type == "budget")
 
     if state_id:
         query = query.filter(SpendingEvidence.applicable_state_id == state_id)
@@ -37,14 +28,18 @@ async def list_schemes(
     if financial_year:
         query = query.filter(SpendingEvidence.financial_year == financial_year)
 
-    # Pagination
     total = query.count()
     schemes = query.order_by(SpendingEvidence.amount_allocated.desc())\
         .offset((page - 1) * per_page)\
         .limit(per_page)\
         .all()
 
-    return schemes
+    return {
+        "items": schemes,
+        "total": total,
+        "page": page,
+        "per_page": per_page,
+    }
 
 
 @router.get("/schemes/{scheme_id}")
@@ -170,10 +165,12 @@ async def get_scheme_budget_vs_outcome(
             "status": "🔴 BELOW_EXPECTATIONS" if avg_resolution < 40 else "🟡 NEEDS_IMPROVEMENT" if avg_resolution < 70 else "🟢 ON_TRACK"
         },
         "red_flags": [
-            "Unspent funds" if (total_allocated - total_spent) > (total_allocated * 0.3) else None,
-            "Low resolution rate" if avg_resolution < 30 else None,
-            "Slow fund release" if total_released < (total_allocated * 0.5) else None,
-        ] | {None}  # Remove None values
+            flag for flag in [
+                "Unspent funds" if (total_allocated - total_spent) > (total_allocated * 0.3) else None,
+                "Low resolution rate" if avg_resolution < 30 else None,
+                "Slow fund release" if total_released < (total_allocated * 0.5) else None,
+            ] if flag is not None
+        ]
     }
 
 
