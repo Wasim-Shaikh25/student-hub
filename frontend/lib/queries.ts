@@ -167,3 +167,29 @@ export async function getModerationQueue() {
     expertProfiles: [],
   }
 }
+
+export async function getInvestigations(filters?: { verdict?: string; page?: number; per_page?: number }) {
+  try {
+    const params = new URLSearchParams()
+    if (filters?.verdict) params.append('verdict', filters.verdict)
+    if (filters?.page) params.append('page', String(filters.page))
+    if (filters?.per_page) params.append('per_page', String(filters.per_page))
+
+    const queryString = params.toString()
+    const result = await serverApi.request('GET', `/investigations${queryString ? '?' + queryString : ''}`)
+    return (result.items as unknown[] || []) as ApiResponse[]
+  } catch (error) {
+    console.error('Failed to fetch investigations:', error)
+    return []
+  }
+}
+
+export async function getInvestigationById(id: string) {
+  try {
+    const result = await serverApi.request('GET', `/investigations/${id}`)
+    return result as ApiResponse
+  } catch (error) {
+    console.error('Failed to fetch investigation:', error)
+    return undefined
+  }
+}
