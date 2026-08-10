@@ -18,6 +18,9 @@ app = FastAPI(
     title=settings.APP_NAME,
     description="India's Civic Accountability Platform - Evidence-First Government Spending Tracking",
     version="1.0.0",
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_url="/openapi.json"
 )
 
 # CORS middleware
@@ -36,7 +39,8 @@ async def health_check():
     return {
         "status": "ok",
         "app": settings.APP_NAME,
-        "environment": settings.ENVIRONMENT
+        "environment": settings.ENVIRONMENT,
+        "version": "1.0.0"
     }
 
 
@@ -46,19 +50,22 @@ async def root():
         "message": "CivicAudit API",
         "version": "1.0.0",
         "docs": "/docs",
-        "description": "India's civic accountability platform"
+        "redoc": "/redoc",
+        "description": "India's civic accountability platform - Government spending transparency backed by citizen evidence"
     }
 
 
-# Import routers (will create these next)
-# from app.routers import auth, issues, evidence, spending, admin
+# Import routers
+from app.routers import auth, issues, evidence, confirmations, comments, spending, admin
 
 # Include routers
-# app.include_router(auth.router)
-# app.include_router(issues.router)
-# app.include_router(evidence.router)
-# app.include_router(spending.router)
-# app.include_router(admin.router)
+app.include_router(auth.router, prefix=settings.API_V1_PREFIX)
+app.include_router(issues.router, prefix=settings.API_V1_PREFIX)
+app.include_router(evidence.router, prefix=settings.API_V1_PREFIX)
+app.include_router(confirmations.router, prefix=settings.API_V1_PREFIX)
+app.include_router(comments.router, prefix=settings.API_V1_PREFIX)
+app.include_router(spending.router, prefix=settings.API_V1_PREFIX)
+app.include_router(admin.router, prefix=settings.API_V1_PREFIX)
 
 
 if __name__ == "__main__":
