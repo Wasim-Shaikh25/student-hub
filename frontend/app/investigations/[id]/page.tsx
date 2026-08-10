@@ -80,16 +80,16 @@ export default async function InvestigationDetailPage({ params }: InvestigationP
     <div className="mx-auto max-w-4xl px-4 py-8">
       {/* Header */}
       <div className="mb-8">
-        <div className="mb-4 flex items-start justify-between gap-4">
+        <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex-1">
-            <h1 className="mb-4 text-3xl font-bold">{inv.article?.title || 'Investigation'}</h1>
-            <div className="flex items-center gap-4">
-              <span className={`rounded-lg border px-4 py-2 text-sm font-semibold ${verdictColors[verdict]}`}>
+            <h1 className="mb-4 text-2xl font-bold md:text-3xl">{inv.article?.title || 'Investigation'}</h1>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:flex-wrap">
+              <span className={`w-fit rounded-lg border px-3 py-2 text-sm font-semibold ${verdictColors[verdict]}`}>
                 {verdictLabels[verdict]}
               </span>
               <div className="flex items-center gap-2">
                 <span className="text-sm font-semibold text-muted-foreground">Confidence:</span>
-                <div className="w-48 rounded-full bg-muted">
+                <div className="w-32 rounded-full bg-muted sm:w-48">
                   <div className="h-2 rounded-full bg-primary" style={{ width: `${Math.round((inv.confidence ?? 0) * 100)}%` }} />
                 </div>
                 <span className="text-sm font-semibold">{Math.round((inv.confidence ?? 0) * 100)}%</span>
@@ -109,7 +109,7 @@ export default async function InvestigationDetailPage({ params }: InvestigationP
       </div>
 
       {/* Summary */}
-      <div className="mb-8 rounded-lg border bg-card p-6">
+      <div className="mb-8 rounded-lg border bg-card p-5 md:p-6">
         <h2 className="mb-4 text-xl font-semibold">Summary</h2>
         <p className="mb-4 text-base leading-relaxed">{inv.summary}</p>
         {inv.detailed_explanation && (
@@ -121,15 +121,17 @@ export default async function InvestigationDetailPage({ params }: InvestigationP
       </div>
 
       {/* Quality Assessment */}
-      <div className="mb-8 rounded-lg border bg-card p-6">
+      <div className="mb-8 rounded-lg border bg-card p-5 md:p-6">
         <h2 className="mb-4 text-lg font-semibold">Analysis Quality</h2>
         <div className="space-y-2">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <span className="text-sm">Quality Score</span>
-            <div className="w-32 rounded-full bg-muted">
-              <div className="h-2 rounded-full bg-primary" style={{ width: `${Math.round((inv.quality_score ?? 0) * 100)}%` }} />
+            <div className="flex flex-1 items-center gap-2 sm:max-w-xs">
+              <div className="w-full rounded-full bg-muted">
+                <div className="h-2 rounded-full bg-primary" style={{ width: `${Math.round((inv.quality_score ?? 0) * 100)}%` }} />
+              </div>
+              <span className="text-sm font-semibold">{Math.round((inv.quality_score ?? 0) * 100)}%</span>
             </div>
-            <span className="text-sm font-semibold">{Math.round((inv.quality_score ?? 0) * 100)}%</span>
           </div>
           {inv.conflicting_sources && (
             <div className="rounded bg-yellow-50 p-2 text-sm text-yellow-800">
@@ -157,7 +159,7 @@ export default async function InvestigationDetailPage({ params }: InvestigationP
                     <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Evidence</p>
                     {claim.evidence_items.map((evidence) => (
                       <div key={evidence.id} className="rounded bg-muted/30 p-2 text-xs">
-                        <div className="flex items-start justify-between gap-2">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                           <div className="flex-1">
                             <a
                               href={evidence.url}
@@ -170,7 +172,7 @@ export default async function InvestigationDetailPage({ params }: InvestigationP
                             </a>
                             <p className="mt-1 text-muted-foreground">{evidence.source_type}</p>
                           </div>
-                          <span className="whitespace-nowrap rounded bg-primary/10 px-2 py-1 text-xs font-semibold">
+                          <span className="w-fit whitespace-nowrap rounded bg-primary/10 px-2 py-1 text-xs font-semibold">
                             {evidence.relation}
                           </span>
                         </div>
@@ -226,7 +228,7 @@ export default async function InvestigationDetailPage({ params }: InvestigationP
 
       {/* Original Article */}
       {inv.article && (
-        <div className="rounded-lg border bg-muted/30 p-6">
+        <div className="rounded-lg border bg-muted/30 p-5 md:p-6">
           <h2 className="mb-3 text-lg font-semibold">Original Article</h2>
           <div className="space-y-2">
             <p className="text-sm text-muted-foreground">

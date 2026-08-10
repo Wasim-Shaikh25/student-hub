@@ -47,20 +47,18 @@ export default async function InvestigationsPage() {
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
       <div className="mb-8">
-        <h1 className="text-4xl font-bold">News Investigations</h1>
-        <p className="text-lg text-muted-foreground">
+        <h1 className="text-2xl font-bold md:text-4xl">News Investigations</h1>
+        <p className="mt-2 text-base text-muted-foreground md:text-lg">
           Evidence-based analysis of news claims with verified sources and expert assessment.
         </p>
       </div>
 
-      <div className="mb-6 flex gap-4">
-        <div className="flex gap-2">
-          <button className="rounded-lg border px-4 py-2 text-sm font-medium hover:bg-muted">All</button>
-          <button className="rounded-lg border px-4 py-2 text-sm font-medium hover:bg-muted">Supported</button>
-          <button className="rounded-lg border px-4 py-2 text-sm font-medium hover:bg-muted">Misleading</button>
-          <button className="rounded-lg border px-4 py-2 text-sm font-medium hover:bg-muted">Contradicted</button>
-          <button className="rounded-lg border px-4 py-2 text-sm font-medium hover:bg-muted">Unverified</button>
-        </div>
+      <div className="mb-6 flex flex-wrap gap-2">
+        <button className="rounded-lg border px-3 py-2 text-sm font-medium hover:bg-muted">All</button>
+        <button className="rounded-lg border px-3 py-2 text-sm font-medium hover:bg-muted">Supported</button>
+        <button className="rounded-lg border px-3 py-2 text-sm font-medium hover:bg-muted">Misleading</button>
+        <button className="rounded-lg border px-3 py-2 text-sm font-medium hover:bg-muted">Contradicted</button>
+        <button className="rounded-lg border px-3 py-2 text-sm font-medium hover:bg-muted">Unverified</button>
       </div>
 
       <Suspense fallback={<div className="text-center text-muted-foreground">Loading investigations...</div>}>

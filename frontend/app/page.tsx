@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Plus, Shield, FileText, Users, CheckCircle } from 'lucide-react'
+import { Plus, Newspaper, Landmark, ClipboardList, ArrowRight } from 'lucide-react'
 import { getCases } from '@/lib/queries'
 import { getSessionUser } from '@/lib/session'
 import { CaseCard } from '@/components/case-card'
@@ -16,10 +16,10 @@ export default async function HomePage() {
     <div className="mx-auto max-w-5xl px-4 py-8 md:py-12">
       <section className="mb-12 text-center">
         <h1 className="text-3xl font-bold tracking-tight md:text-5xl">
-          Turn problems into progress
+          PublicWatch — Hold public money and public claims to account
         </h1>
         <p className="mx-auto mt-4 max-w-2xl text-lg text-muted-foreground">
-          PublicWatch is an evidence-first network where citizens raise, validate, and collectively resolve public problems.
+          A citizens-first platform to verify news against evidence, track government scheme spending, and report issues that affect your community.
         </p>
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
           {user ? (
@@ -36,38 +36,43 @@ export default async function HomePage() {
               className="inline-flex h-11 items-center gap-2 rounded-xl bg-primary px-6 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90"
             >
               Get started
+              <ArrowRight className="size-4" />
             </Link>
           )}
           <Link
             href="/discover"
             className="inline-flex h-11 items-center rounded-xl border bg-background px-6 text-sm font-semibold hover:bg-muted"
           >
-            Discover cases
+            Browse public cases
           </Link>
         </div>
       </section>
 
-      <section className="mb-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-2xl border bg-card p-4">
-          <Shield className="size-6 text-primary" />
-          <h3 className="mt-3 font-semibold">No evidence, no case</h3>
-          <p className="mt-1 text-sm text-muted-foreground">Every issue needs supporting documents before it goes live.</p>
-        </div>
-        <div className="rounded-2xl border bg-card p-4">
-          <FileText className="size-6 text-primary" />
-          <h3 className="mt-3 font-semibold">Evidence-first</h3>
-          <p className="mt-1 text-sm text-muted-foreground">Official notices, emails, receipts, and screenshots.</p>
-        </div>
-        <div className="rounded-2xl border bg-card p-4">
-          <Users className="size-6 text-primary" />
-          <h3 className="mt-3 font-semibold">Collective action</h3>
-          <p className="mt-1 text-sm text-muted-foreground">Other citizens confirm, experts review, authorities respond.</p>
-        </div>
-        <div className="rounded-2xl border bg-card p-4">
-          <CheckCircle className="size-6 text-primary" />
-          <h3 className="mt-3 font-semibold">Resolution confidence</h3>
-          <p className="mt-1 text-sm text-muted-foreground">Verified by affected citizens, not likes.</p>
-        </div>
+      <section className="mb-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <Link
+          href="/investigations"
+          className="group rounded-2xl border bg-card p-5 shadow-sm transition-all hover:shadow-md hover:border-primary/50"
+        >
+          <Newspaper className="size-6 text-primary" />
+          <h3 className="mt-3 font-semibold group-hover:text-primary">Verify the News</h3>
+          <p className="mt-1 text-sm text-muted-foreground">See which claims are supported, misleading, or contradicted by evidence.</p>
+        </Link>
+        <Link
+          href="/schemes"
+          className="group rounded-2xl border bg-card p-5 shadow-sm transition-all hover:shadow-md hover:border-primary/50"
+        >
+          <Landmark className="size-6 text-primary" />
+          <h3 className="mt-3 font-semibold group-hover:text-primary">Track Government Schemes</h3>
+          <p className="mt-1 text-sm text-muted-foreground">Explore budget allocations, releases, and spending for education and civic schemes.</p>
+        </Link>
+        <Link
+          href={user ? '/raise' : '/discover'}
+          className="group rounded-2xl border bg-card p-5 shadow-sm transition-all hover:shadow-md hover:border-primary/50"
+        >
+          <ClipboardList className="size-6 text-primary" />
+          <h3 className="mt-3 font-semibold group-hover:text-primary">Raise & Track Issues</h3>
+          <p className="mt-1 text-sm text-muted-foreground">Report public problems with evidence and follow them through resolution.</p>
+        </Link>
       </section>
 
       <section className="mb-12">
