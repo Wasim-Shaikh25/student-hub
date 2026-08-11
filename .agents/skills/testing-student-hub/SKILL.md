@@ -49,6 +49,14 @@ description: End-to-end testing guide for the StudentHub → PublicWatch Next.js
 - API validation errors are surfaced as readable field-level messages in the UI (e.g. `email: value is not a valid email address`).
 - The backend normalizes legacy evidence `file_url` values to `/uploads/...` on startup, so seeded evidence should resolve correctly after the app boots.
 
+## Netlify / no-backend fallback testing
+
+- The `/investigations` and `/schemes` pages fall back to `frontend/lib/demo-data.ts` when `getInvestigations`/`getSchemes` cannot reach `NEXT_PUBLIC_API_URL`.
+- To simulate Netlify preview (backend offline), stop uvicorn on port 8000 and run only `npm run dev`.
+- To test real data, start `uvicorn app.main:app --host 0.0.0.0 --port 8000` first (seed runs on import in `backend/app/main.py`) and then start the frontend.
+- Distinguishing evidence: fallback `getDemoSchemeById` returns `last_updated` as `Date.now() - 2 days`, whereas the backend writes `now()` into `extracted_at` on startup. The `/schemes/mid-day-meal` detail page will show an older "Last updated" date in fallback mode and today's date with the backend.
+- Frontend dev-server logs should contain a `Backend unreachable, using demo ... fallback` message when the backend is offline and should not contain any fallback message when the backend is online.
+
 ## Build / lint sanity
 
 - `npm run lint` should return no ESLint warnings or errors.
